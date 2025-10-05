@@ -34,11 +34,11 @@ Bird_MIN_Speed = 20 #bird 最小速度
 Bird_Color_Slow = pygame.math.Vector3(75,76,255) #bird 最慢速顏色
 Bird_Color_Fast = pygame.math.Vector3(63,255,50) #bird 最快速顏色
 Bird_Color_ChangeRate = Bird_Color_Fast-Bird_Color_Slow
-Bird_Perception_Radius = 20 #bird 觀察範圍
+Bird_Perception_Radius = 30 #bird 觀察範圍
 Bird_Separation_Weight = 1 #bird 分離力最大值
 Bird_Alignment_Weight = 1 #bird 對齊力最大值
 Bird_Cohesion_Weight = 1 #bird 聚集力最大值
-Bird_Flee_Weight = 3 #bird 逃跑力最大值
+Bird_Flee_Weight = 5 #bird 逃跑力最大值
 Bird_Alert_Radius = 40 #bird 警戒範圍
 
 Predator_Number = 3 #Predator 數量
@@ -50,6 +50,7 @@ Predator_Track_Weight = 2
 Predator_Separation_Weight = 1
 
 Obstacle_Number = 4 # Obstacle 數量
+Obstacle_Size = 80 # Obstacle 大小
 Bounce_Damping = 0.8 # bird 碰撞時能量遞減
 
 # 計算精度，若有 n 隻 bird ，則每隻 bird 需要與 n-1 隻 bird 互動，
@@ -208,13 +209,13 @@ class Predator(Animal):
     def apply_track(self, all_boids):
         # 追蹤 bird
         track_force = pygame.math.Vector2(0, 0) #追蹤力
+        TRACK_RADIUS = Predator_Perception_Radius**2
         if all_boids:
-            track_radius = Predator_Perception_Radius**2
             neighbor_count = 0 # 紀錄偵測到的近鄰數量
 
             for bird in all_boids:
                 forward_bird = bird.position-self.position
-                if track_radius>forward_bird.length_squared():
+                if TRACK_RADIUS>forward_bird.length_squared():
                     track_force+=forward_bird
                     neighbor_count+=1
             
@@ -252,6 +253,7 @@ class Predator(Animal):
         force = self.apply_track(all_boids)+self.apply_separation(predators) #計算作用力
         self.direction = (self.direction+force).normalize() #調整方向
         self.speed += force.length() #調整速率
+        # self.position = pygame.math.Vector2(pygame.mouse.get_pos())
 
         #實際運動
         super(Predator,self).basis_update(Predator_MAX_Speed,Predator_MIN_Speed,obstacles)
@@ -360,7 +362,7 @@ birds = [Bird(random.choice([
 obstacles = [Obstacle(Obstacle.generate_random_polygon(
     random.randint(100,SCREEN_WIDTH-100),
     random.randint(100,SCREEN_HEIGHT-100),
-    80,100,random.randint(4,20))) for _ in range(Obstacle_Number)]
+    Obstacle_Size,int(Obstacle_Size*1.4),random.randint(4,20))) for _ in range(Obstacle_Number)]
 
 predators = [Predator(random.choice([
     {'x':0,'y':random.randint(0,SCREEN_HEIGHT)},
