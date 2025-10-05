@@ -16,11 +16,11 @@ BACKGROUND_COLOR = (25,25,25)
 #初始化
 pygame.init()
 Screen = pygame.display.set_mode((SCREEN_WIDTH,SCREEN_HEIGHT))
-pygame.display.set_caption('boids V0.2.0')
+pygame.display.set_caption('boids V0.3.0')
 Timer = pygame.time.Clock()
 
 #載入圖片、字體
-Font = os.path.join("TaipeiSansTCBeta-Regular.ttf")
+# Font = os.path.join("TaipeiSansTCBeta-Regular.ttf")
 
 #全域變數
 Running=True #遊戲是否運行
@@ -46,8 +46,8 @@ Predator_Size = 10 #Predator 大小
 Predator_MIN_Speed = 40 #Predator 最小速度
 Predator_MAX_Speed = 160 #Predator 最大速度
 Predator_Perception_Radius = 60 #Predator 觀察範圍
-Predator_Track_Weight = 2
-Predator_Separation_Weight = 1
+Predator_Track_Weight = 2 #Predator 追蹤力
+Predator_Separation_Weight = 1 #Predator 分離力
 
 Obstacle_Number = 4 # Obstacle 數量
 Obstacle_Size = 80 # Obstacle 大小
@@ -285,8 +285,8 @@ class Obstacle:
         圓形碰撞
         極度簡化的碰撞邏輯，效能極高
         """ 
-        # Boid 的碰撞半徑，bird 看到障礙且距離夠近時閃開
-        COLLISION_RADIUS = Bird_Perception_Radius/2
+        # Boid 的碰撞半徑
+        COLLISION_RADIUS = boid.size
         
         # 1. 計算 Boid 到圓心的向量和距離
         center_to_boid = boid.position - self.center
