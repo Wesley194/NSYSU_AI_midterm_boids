@@ -24,7 +24,7 @@
 1. 追擊，往視野範圍內最多 Bird 的地方前進
 
 # 參考資料
-1. Gemini 2.5 Flash 以下簡稱 AI
+1. **Gemini 2.5 Flash** 以下簡稱 AI
 2. https://boids.dan.onl/ 以下簡稱 online boids
 
 ## class Animal
