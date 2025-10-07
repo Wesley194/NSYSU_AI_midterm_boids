@@ -34,7 +34,7 @@
 #### draw (繪圖)
 自行設計，AI實作
 #### apply_bounce (碰撞處理)  
-自行設計，AI實作
+AI設計，AI實作
 #### basis_update (更新狀態)
 自行設計，自行實作
 
