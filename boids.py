@@ -3,6 +3,7 @@ import pygame
 import os
 import numpy.random as random
 import numpy as np
+import pygame_gui
 
 
 #setting
@@ -122,9 +123,10 @@ class Bird(Animal):
         cohesion_force = pygame.math.Vector2(0, 0) #聚集力
         center_of_mass = pygame.math.Vector2(0, 0) #聚集中心
 
+
         neighbor_count = 0 # 紀錄偵測到的近鄰數量
 
-        # 遍歷其他的 Boid
+        # 遍歷其他的 Boids
         for i in np.random.choice(np.arange(0,Bird_Number),
                                   size=(int(Bird_Number*Movement_Accuracy),), replace=False):
             other = boids[i]
@@ -190,10 +192,21 @@ class Bird(Animal):
                 flee_force/=neighbor_count
                 if flee_force.length() > Bird_Flee_Weight:
                     flee_force.scale_to_length(Bird_Flee_Weight)
-        return flee_force   
-    def update(self,all_boids,obstacles,predators):
+        return flee_force
+    def flee_mouse(self, mouse_pos):
+        #當滑鼠左鍵點擊時，附近的鳥群要遠離鼠標
+        
+        flee_mouse_force = pygame.math.Vector2(0, 0) # boid 和滑鼠鼠標的斥力
+        if (mouse_pos[0] != 0 or mouse_pos[1] != 0): # 若滑鼠沒點擊，預設會傳入 (0,0)，則不用計算
+            #邏輯和 flee_predator 同
+            distance_vector = self.position - pygame.Vector2(mouse_pos[0], mouse_pos[1])
+            distance = distance_vector.length()
+            if distance < Bird_Alert_Radius:
+                flee_mouse_force = distance_vector.normalize()*Bird_MAX_Speed / distance
+        return flee_mouse_force
+    def update(self,all_boids,obstacles,predators,mouse_pos= (0,0)):
         #調整速度
-        force = self.apply_force(all_boids)+self.flee_predator(predators) #計算作用力
+        force = self.apply_force(all_boids)+self.flee_predator(predators)+self.flee_mouse(mouse_pos) #計算作用力
         self.direction = (self.direction+force).normalize() #調整方向
         self.speed += force.length() #調整速率
 
@@ -389,8 +402,11 @@ while Running:
     
     #繪圖
     Screen.fill(BACKGROUND_COLOR)
+    mouse_pos = (0,0)
+    if pygame.mouse.get_pressed()[0]:
+        mouse_pos = pygame.mouse.get_pos()
     for bird in birds:
-        bird.update(birds,obstacles,predators)
+        bird.update(birds,obstacles,predators,mouse_pos)
         bird.draw(Screen)
     for obstacle in obstacles:
         obstacle.draw(Screen)
