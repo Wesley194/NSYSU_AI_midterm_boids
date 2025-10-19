@@ -3,7 +3,6 @@ import pygame
 import os
 import numpy.random as random
 import numpy as np
-import pygame_gui
 
 
 #setting
@@ -49,6 +48,7 @@ Predator_MAX_Speed = 160 #Predator 最大速度
 Predator_Perception_Radius = 60 #Predator 觀察範圍
 Predator_Track_Weight = 2 #Predator 追蹤力
 Predator_Separation_Weight = 1 #Predator 分離力
+Predator_Eat_Radius = 5 #Predator 捕食範圍
 
 Obstacle_Number = 4 # Obstacle 數量
 Obstacle_Size = 80 # Obstacle 大小
@@ -71,6 +71,7 @@ class Animal:
         self.velocity = self.direction*self.speed #初始速度
         self.color = color #顏色
         self.size = size
+        self.alive = True
     def draw(self, screen):
         right_vector = pygame.math.Vector2(-self.direction.y,self.direction.x) #垂直於 self.direction 的向量
         #三個頂點
@@ -115,7 +116,15 @@ class Animal:
             self.position.y = SCREEN_HEIGHT
 
 class Bird(Animal):
-    def __init__(self,pos):
+    def __init__(self, pos=None):
+        if pos is None:
+            edges = [
+                {'x': 0, 'y': random.randint(0, SCREEN_HEIGHT)},           
+                {'x': SCREEN_WIDTH, 'y': random.randint(0, SCREEN_HEIGHT)},
+                {'x': random.randint(0, SCREEN_WIDTH), 'y': 0},           
+                {'x': random.randint(0, SCREEN_WIDTH), 'y': SCREEN_HEIGHT}
+            ]
+            pos = random.choice(edges)
         super(Bird,self).__init__(pos,Bird_Size,(Bird_MIN_Speed+Bird_MAX_Speed)/2) 
     def apply_force(self, boids):
         separation_force = pygame.math.Vector2(0,0) #分離推力
@@ -181,6 +190,10 @@ class Bird(Animal):
             distance_vector = self.position - predator.position # 從掠食者指向 Boid 的向量
             distance = distance_vector.length()
             
+            # 檢查是否在掠食者的捕獲範圍內
+            if distance < Predator_Eat_Radius:
+                self.alive = False
+            
             # 檢查是否在逃跑範圍內
             if distance < Bird_Alert_Radius and distance > 0:
                 # 施加一個強大的推力
@@ -217,7 +230,15 @@ class Bird(Animal):
         self.color = Bird_Color_Slow+Bird_Color_ChangeRate*((self.speed-Bird_MIN_Speed)/(Bird_MAX_Speed-Bird_MIN_Speed))
 
 class Predator(Animal):
-    def __init__(self, pos):
+    def __init__(self, pos=None):
+        if pos is None:
+            edges = [
+                {'x': 0, 'y': random.randint(0, SCREEN_HEIGHT)},          
+                {'x': SCREEN_WIDTH, 'y': random.randint(0, SCREEN_HEIGHT)},
+                {'x': random.randint(0, SCREEN_WIDTH), 'y': 0},           
+                {'x': random.randint(0, SCREEN_WIDTH), 'y': SCREEN_HEIGHT}
+            ]
+            pos = random.choice(edges)
         super(Predator,self).__init__(pos,Predator_Size,Predator_MAX_Speed,color=(255,30,45))
     def apply_track(self, all_boids):
         # 追蹤 bird
@@ -365,24 +386,14 @@ class Obstacle:
 
 #main
 #load
-birds = [Bird(random.choice([
-    {'x':0,'y':random.randint(0,SCREEN_HEIGHT)},
-    {'x':SCREEN_WIDTH,'y':random.randint(0,SCREEN_HEIGHT)},
-    {'x':random.randint(0,SCREEN_WIDTH),'y':0},
-    {'x':random.randint(0,SCREEN_WIDTH),'y':SCREEN_HEIGHT}
-    ])) for _ in range(Bird_Number)] #在邊緣生成 bird
+birds = [Bird() for _ in range(Bird_Number)] #在邊緣生成 bird
 
 obstacles = [Obstacle(Obstacle.generate_random_polygon(
     random.randint(100,SCREEN_WIDTH-100),
     random.randint(100,SCREEN_HEIGHT-100),
     Obstacle_Size,int(Obstacle_Size*1.4),random.randint(4,20))) for _ in range(Obstacle_Number)]
 
-predators = [Predator(random.choice([
-    {'x':0,'y':random.randint(0,SCREEN_HEIGHT)},
-    {'x':SCREEN_WIDTH,'y':random.randint(0,SCREEN_HEIGHT)},
-    {'x':random.randint(0,SCREEN_WIDTH),'y':0},
-    {'x':random.randint(0,SCREEN_WIDTH),'y':SCREEN_HEIGHT}
-    ])) for _ in range(Predator_Number)]
+predators = [Predator() for _ in range(Predator_Number)]
 
 #tick
 while Running:
@@ -407,7 +418,17 @@ while Running:
         mouse_pos = pygame.mouse.get_pos()
     for bird in birds:
         bird.update(birds,obstacles,predators,mouse_pos)
+    # 更新死掉 bird 的狀態 
+    for i in range(Bird_Number):
+        #死掉的 bird 在邊界重生
+        if (not birds[i].alive):
+            birds[i] = Bird()
+    # 死掉的 bird 移除不重生
+    # birds = [b for b in birds if (b.alive)]
+    # Bird_Number = len(birds)
+    for bird in birds:    
         bird.draw(Screen)
+    print(Bird_Number)
     for obstacle in obstacles:
         obstacle.draw(Screen)
     for predator in predators:
