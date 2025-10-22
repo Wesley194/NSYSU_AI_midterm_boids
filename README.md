@@ -1,29 +1,29 @@
-# 最低版本要求:
+## 最低版本要求:
 1. Python : 3.11.3
 2. pygame : 2.6.0
 3. numpy : 2.2.6
 
-# 生物邏輯
-## 所有生物
+## 生物邏輯
+### 所有生物
 1. 移動
 2. 與障礙物碰撞
 3. 穿過邊緣
 
-## Bird
-### 與 Bird 互動
+### Bird
+#### 與 Bird 互動
 1. 分離，避免太擁擠
 2. 對齊，嘗試跟上其他同類並往同方向移動
 3. 聚集，與同類靠近
-### 與 Predator 互動
+#### 與 Predator 互動
 1. 逃離，遠離 Predator
 
-## Predator
-### 與 Predator 互動
+### Predator
+#### 與 Predator 互動
 1. 分離，避免太擁擠
-### 與 Bird 互動
+#### 與 Bird 互動
 1. 追擊，往視野範圍內最多 Bird 的地方前進
 
-# 參考資料
+## 參考資料
 1. **Gemini 2.5 Flash** 以下簡稱 AI
 2. https://boids.dan.onl/ 以下簡稱 online boids
 
