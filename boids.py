@@ -38,17 +38,25 @@ Bird_Perception_Radius = 30 #bird 觀察範圍
 Bird_Separation_Weight = 1 #bird 分離力最大值
 Bird_Alignment_Weight = 1 #bird 對齊力最大值
 Bird_Cohesion_Weight = 1 #bird 聚集力最大值
-Bird_Flee_Weight = 5 #bird 逃跑力最大值
-Bird_Alert_Radius = 40 #bird 警戒範圍
+Bird_Flee_Weight = 4 #bird 逃跑力最大值
+Bird_Alert_Radius = 50 #bird 警戒範圍
 
 Predator_Number = 3 #Predator 數量
 Predator_Size = 10 #Predator 大小
-Predator_MIN_Speed = 40 #Predator 最小速度
-Predator_MAX_Speed = 160 #Predator 最大速度
+Predator_MIN_Speed = 60 #Predator 最小速度
+Predator_MAX_Speed = 170 #Predator 最大速度
 Predator_Perception_Radius = 60 #Predator 觀察範圍
 Predator_Track_Weight = 2 #Predator 追蹤力
 Predator_Separation_Weight = 1 #Predator 分離力
-Predator_Eat_Radius = 5 #Predator 捕食範圍
+Predator_Eat_Radius = 8 #Predator 捕食範圍
+
+Particle_Size = 10 #粒子大小
+Particle_Num = 3 #每次動物死亡，出現的粒子數
+Particle_Lifetime = 25 #粒子的生命週期 (tick)
+Particle_Radious = 1 #粒子半徑
+Particle_MIN_Speed = 15 #粒子的最小速度
+Particle_MAX_Speed = 25 #粒子的最大速度
+Particle_offset_angle = 120 #粒子init後和輸入的angle最大差值
 
 Obstacle_Number = 4 # Obstacle 數量
 Obstacle_Size = 80 # Obstacle 大小
@@ -71,7 +79,7 @@ class Animal:
         self.velocity = self.direction*self.speed #初始速度
         self.color = color #顏色
         self.size = size
-        self.alive = True
+        self.situation = "alive" #個體目前的狀態，有 1.alive 2.dying(做死亡動畫) 3.dead(即將重生)
     def draw(self, screen):
         right_vector = pygame.math.Vector2(-self.direction.y,self.direction.x) #垂直於 self.direction 的向量
         #三個頂點
@@ -139,8 +147,8 @@ class Bird(Animal):
         for i in np.random.choice(np.arange(0,Bird_Number),
                                   size=(int(Bird_Number*Movement_Accuracy),), replace=False):
             other = boids[i]
-            # 確保不是自己
-            if other is not self:
+            # 確保不是自己且對象是存活的
+            if other is not self and other.situation == "alive":
                 # 計算兩個 Boid 之間的距離
                 distance = self.position.distance_to(other.position)
                 
@@ -192,7 +200,12 @@ class Bird(Animal):
             
             # 檢查是否在掠食者的捕獲範圍內
             if distance < Predator_Eat_Radius:
-                self.alive = False
+                # 更改狀態
+                self.situation = "dying"
+                self.speed = 0
+                # 死亡後觸發粒子
+                pos = {'x': self.position.x, 'y': self.position.y}
+                particles.extend([Particle(pos,self.direction) for _ in range(Particle_Num)])
             
             # 檢查是否在逃跑範圍內
             if distance < Bird_Alert_Radius and distance > 0:
@@ -218,16 +231,22 @@ class Bird(Animal):
                 flee_mouse_force = distance_vector.normalize()*Bird_MAX_Speed / distance
         return flee_mouse_force
     def update(self,all_boids,obstacles,predators,mouse_pos= (0,0)):
-        #調整速度
-        force = self.apply_force(all_boids)+self.flee_predator(predators)+self.flee_mouse(mouse_pos) #計算作用力
-        self.direction = (self.direction+force).normalize() #調整方向
-        self.speed += force.length() #調整速率
+        if (self.situation == "alive"):
+            #調整速度
+            force = self.apply_force(all_boids)+self.flee_predator(predators)+self.flee_mouse(mouse_pos) #計算作用力
+            self.direction = (self.direction+force).normalize() #調整方向
+            self.speed += force.length() #調整速率
 
-        #實際運動
-        super(Bird,self).basis_update(Bird_MAX_Speed,Bird_MIN_Speed,obstacles)
+            #實際運動
+            super(Bird,self).basis_update(Bird_MAX_Speed,Bird_MIN_Speed,obstacles)
 
-        #更改顏色    
-        self.color = Bird_Color_Slow+Bird_Color_ChangeRate*((self.speed-Bird_MIN_Speed)/(Bird_MAX_Speed-Bird_MIN_Speed))
+            #更改顏色    
+            self.color = Bird_Color_Slow+Bird_Color_ChangeRate*((self.speed-Bird_MIN_Speed)/(Bird_MAX_Speed-Bird_MIN_Speed))
+        elif (self.situation == "dying"):
+            #死亡後:本體顏色漸暗
+            self.color = (self.color[0]*0.97, self.color[1]*0.97, self.color[2]*0.97)
+            if (self.color[0] <= 15):
+                self.situation = "dead"
 
 class Predator(Animal):
     def __init__(self, pos=None):
@@ -248,6 +267,8 @@ class Predator(Animal):
             neighbor_count = 0 # 紀錄偵測到的近鄰數量
 
             for bird in all_boids:
+                if bird.situation != "alive":
+                    continue
                 forward_bird = bird.position-self.position
                 if TRACK_RADIUS>forward_bird.length_squared():
                     track_force+=forward_bird
@@ -291,7 +312,26 @@ class Predator(Animal):
 
         #實際運動
         super(Predator,self).basis_update(Predator_MAX_Speed,Predator_MIN_Speed,obstacles)
+
+class Particle(Animal):
+    def __init__(self, pos, dir):
+        self.speed = random.randint(Particle_MIN_Speed,Particle_MAX_Speed)
+        super(Particle,self).__init__(pos,Particle_Size,self.speed)
+        self.lifetime = Particle_Lifetime
+        self.direction = dir
+        self.direction.rotate_ip(random.randint(-Particle_offset_angle,Particle_offset_angle))
         
+    def update(self):
+        self.velocity = self.direction*self.speed*DT
+        self.position += self.velocity
+        self.direction.rotate_ip(random.uniform(-20, 20)) #隨機擾動改變角度
+        self.lifetime -= 1
+
+        
+    def draw(self, screen):
+        #繪製圓形
+        pygame.draw.circle(screen, self.color, (self.position[0],self.position[1]), Particle_Radious)
+    
 class Obstacle:
     def __init__(self, vertices, color=(150, 150, 150)):
         # 將頂點列表轉換為 Vector2 列表，方便運算
@@ -387,14 +427,16 @@ class Obstacle:
 #main
 #load
 birds = [Bird() for _ in range(Bird_Number)] #在邊緣生成 bird
+predators = [Predator() for _ in range(Predator_Number)]
+particles = []
 
 obstacles = [Obstacle(Obstacle.generate_random_polygon(
     random.randint(100,SCREEN_WIDTH-100),
     random.randint(100,SCREEN_HEIGHT-100),
     Obstacle_Size,int(Obstacle_Size*1.4),random.randint(4,20))) for _ in range(Obstacle_Number)]
 
-predators = [Predator() for _ in range(Predator_Number)]
 
+DT = Timer.tick(FPS)/1000 #FPS
 #tick
 while Running:
     #取得動作
@@ -403,7 +445,6 @@ while Running:
             Running = False
             break
     
-    DT = Timer.tick(FPS)/1000 #FPS
     Debug_AVG_FPS["total"]+=DT
     Debug_AVG_FPS["cnt"]+=1
     if Debug_AVG_FPS["cnt"]>=FPS:
@@ -414,27 +455,29 @@ while Running:
     #繪圖
     Screen.fill(BACKGROUND_COLOR)
     mouse_pos = (0,0)
+    # 如果按下滑鼠左鍵
     if pygame.mouse.get_pressed()[0]:
+        # 紀錄滑鼠位置
         mouse_pos = pygame.mouse.get_pos()
-    for bird in birds:
-        bird.update(birds,obstacles,predators,mouse_pos)
     # 更新死掉 bird 的狀態 
     for i in range(Bird_Number):
         #死掉的 bird 在邊界重生
-        if (not birds[i].alive):
+        if (birds[i].situation == "dead"):
             birds[i] = Bird()
-    # 死掉的 bird 移除不重生
-    # birds = [b for b in birds if (b.alive)]
-    # Bird_Number = len(birds)
-    for bird in birds:    
-        bird.draw(Screen)
-    print(Bird_Number)
+        else:
+            birds[i].update(birds,obstacles,predators,mouse_pos) 
+            birds[i].draw(Screen)
+
+    particles = [particle for particle in particles if (particle.lifetime > 0)] #移除週期結束的粒子
+    for particle in particles:
+        particle.update()
+        particle.draw(Screen)
+
     for obstacle in obstacles:
         obstacle.draw(Screen)
     for predator in predators:
         predator.update(birds,obstacles,predators)
         predator.draw(Screen)
-
     pygame.display.flip()
 
 #結束清理
