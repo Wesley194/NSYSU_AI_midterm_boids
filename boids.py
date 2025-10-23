@@ -1,6 +1,4 @@
-import sys
 import pygame
-import os
 import numpy.random as random
 import numpy as np
 import ttkbootstrap as ttk
@@ -43,6 +41,7 @@ def run_pygame(shared_state, state_lock, stop_event):
     Bird_Cohesion_Weight = 1 #bird 聚集力最大值
     Bird_Flee_Weight = 4 #bird 逃跑力最大值
     Bird_Alert_Radius = 50 #bird 警戒範圍
+    Bird_Mouse_Activity = {"pos":(0,0),"click":0}
 
     Predator_Number = 3 #Predator 數量
     Predator_Size = 10 #Predator 大小
@@ -172,26 +171,26 @@ def run_pygame(shared_state, state_lock, stop_event):
             #總結
             if neighbor_count > 0:
                 #計算推離力
-                if separation_force.length() > 0:
+                if separation_force.length_squared() > 0:
                     separation_force /= neighbor_count
-                    if separation_force.length() > Bird_Separation_Weight:
+                    if separation_force.length_squared() > Bird_Separation_Weight**2:
                         separation_force.scale_to_length(Bird_Separation_Weight)
 
                 #計算對齊力
                 #對齊力 = 理想速度 (平均速度 * 最大速度) - 目前速度
-                if alignment_force.length() > 0:
+                if alignment_force.length_squared() > 0:
                     alignment_force /= neighbor_count
                     alignment_force = alignment_force.normalize() * Bird_MAX_Speed - self.velocity
-                    if alignment_force.length() > Bird_Alignment_Weight:
+                    if alignment_force.length_squared() > Bird_Alignment_Weight**2:
                         alignment_force.scale_to_length(Bird_Alignment_Weight)
 
                 #計算聚集力
                 #往質量中心移動
                 center_of_mass /= neighbor_count
                 cohesion_force = center_of_mass - self.position
-                if cohesion_force.length() > 0:
+                if cohesion_force.length_squared() > 0:
                     cohesion_force = cohesion_force.normalize() * Bird_MAX_Speed - self.velocity
-                    if cohesion_force.length() > Bird_Cohesion_Weight:
+                    if cohesion_force.length_squared() > Bird_Cohesion_Weight**2:
                         cohesion_force.scale_to_length(Bird_Cohesion_Weight)
 
             return separation_force + alignment_force + cohesion_force 
@@ -220,27 +219,31 @@ def run_pygame(shared_state, state_lock, stop_event):
 
             if neighbor_count > 0:
                 #計算逃跑力
-                if flee_force.length() > 0:
+                if flee_force.length_squared() > 0:
                     flee_force /= neighbor_count
-                    if flee_force.length() > Bird_Flee_Weight:
+                    if flee_force.length_squared() > Bird_Flee_Weight**2:
                         flee_force.scale_to_length(Bird_Flee_Weight)
             return flee_force
 
-        #當滑鼠左鍵點擊時，附近的鳥群要遠離鼠標
-        def flee_mouse(self, mouse_pos):
-            flee_mouse_force = pygame.math.Vector2(0, 0) # boid 和滑鼠鼠標的斥力
-            if (mouse_pos[0] != 0 or mouse_pos[1] != 0): # 若滑鼠沒點擊，預設會傳入 (0,0)，則不用計算
-                #邏輯和 flee_predator 同
-                distance_vector = self.position - pygame.Vector2(mouse_pos[0], mouse_pos[1])
+        #當滑鼠左鍵按下時，附近的鳥群要遠離鼠標
+        def mouse_activity(self):
+            mouse_force = pygame.math.Vector2(0, 0) # boid 和滑鼠鼠標的斥力或引力
+            if (Bird_Mouse_Activity["click"]!=0): # 若滑鼠沒點擊(或左右鍵一起點)則不用計算
+                #邏輯和 flee_predator 類似
+                #左鍵(Bird_Mouse_Activity["click"]=1)排斥，右鍵(Bird_Mouse_Activity["click"]=-1)吸引
+                distance_vector = Bird_Mouse_Activity["click"]*(
+                    self.position - pygame.Vector2(Bird_Mouse_Activity["pos"][0], Bird_Mouse_Activity["pos"][1]))
                 distance = distance_vector.length()
-                if distance < Bird_Alert_Radius:
-                    flee_mouse_force = distance_vector.normalize()*Bird_MAX_Speed / distance
-            return flee_mouse_force
+                if 0 < distance < Bird_Alert_Radius:
+                    mouse_force = distance_vector.normalize()*Bird_MAX_Speed / distance
+                    if mouse_force.length_squared() > Bird_Flee_Weight**2:
+                        mouse_force.scale_to_length(Bird_Flee_Weight)
+            return mouse_force
 
-        def update(self, all_boids, obstacles, predators, mouse_pos= (0, 0)):         
+        def update(self, all_boids, obstacles, predators):         
             if (self.situation == "alive"):
                 #調整速度
-                force = self.apply_force(all_boids) + self.flee_predator(predators) + self.flee_mouse(mouse_pos) #計算作用力
+                force = self.apply_force(all_boids) + self.flee_predator(predators) + self.mouse_activity() #計算作用力
                 self.direction = (self.direction + force).normalize() #調整方向
                 self.speed += force.length() #調整速率
 
@@ -272,7 +275,7 @@ def run_pygame(shared_state, state_lock, stop_event):
         #追蹤 bird
         def apply_track(self, all_boids):
             track_force = pygame.math.Vector2(0, 0) #追蹤力
-            TRACK_RADIUS = Predator_Perception_Radius ** 2
+            TRACK_RADIUS_SQ = Predator_Perception_Radius ** 2
             if all_boids:
                 neighbor_count = 0 # 紀錄偵測到的近鄰數量
 
@@ -280,13 +283,13 @@ def run_pygame(shared_state, state_lock, stop_event):
                     if bird.situation != "alive":
                         continue
                     forward_bird = bird.position - self.position
-                    if TRACK_RADIUS > forward_bird.length_squared():
+                    if TRACK_RADIUS_SQ > forward_bird.length_squared():
                         track_force += forward_bird
                         neighbor_count += 1
 
                 if neighbor_count > 0:
                     track_force /= neighbor_count
-                    if track_force.length() > 0:
+                    if track_force.length_squared() > 0:
                         track_force = track_force.normalize() * Predator_MAX_Speed - self.velocity
                         if track_force.length_squared() > Predator_Track_Weight ** 2:
                             track_force.scale_to_length(Predator_Track_Weight)
@@ -310,9 +313,9 @@ def run_pygame(shared_state, state_lock, stop_event):
 
             if neighbor_count > 0:
                 #計算分離力
-                if separation_force.length() > 0:
+                if separation_force.length_squared() > 0:
                     separation_force /= neighbor_count
-                    if separation_force.length() > Predator_Separation_Weight:
+                    if separation_force.length_squared() > Predator_Separation_Weight**2:
                         separation_force.scale_to_length(Predator_Separation_Weight)
 
             return separation_force
@@ -455,7 +458,7 @@ def run_pygame(shared_state, state_lock, stop_event):
     while not stop_event.is_set():
         #取得數值
         Damping = shared_state["Overall"]["Damping"]/1000
-        Movement_Accuracy = shared_state['Bird']['Movement_Accuracy']
+        Movement_Accuracy = shared_state['Bird']['Movement_Accuracy']/100
         Bounce_Damping = shared_state['Overall']['Bounce_Damping']
 
         Bird_Number = shared_state['Bird']['Number']
@@ -519,13 +522,13 @@ def run_pygame(shared_state, state_lock, stop_event):
             obstacles = obstacles[:desired_obs_count]
 
 
-       #繪圖
+        #繪圖
         Screen.fill(BACKGROUND_COLOR)
-        mouse_pos = (0, 0)
-        #如果按下滑鼠左鍵
-        if pygame.mouse.get_pressed()[0]:
-            #紀錄滑鼠位置
-            mouse_pos = pygame.mouse.get_pos()
+        
+        #滑鼠事件處理
+        Bird_Mouse_Activity["pos"] = pygame.mouse.get_pos() #滑鼠位置
+        #滑鼠點擊處理，點左鍵為1(驅離)，點右鍵為-1(聚集)
+        Bird_Mouse_Activity["click"] = pygame.mouse.get_pressed()[0]-pygame.mouse.get_pressed()[2]
         
         #更新死掉 bird 的狀態 
         for i in range(Bird_Number):
@@ -533,7 +536,7 @@ def run_pygame(shared_state, state_lock, stop_event):
             if (birds[i].situation == "dead"):
                 birds[i] = Bird()
             else:
-                birds[i].update(birds,obstacles,predators,mouse_pos) 
+                birds[i].update(birds,obstacles,predators) 
                 birds[i].draw(Screen)
         particles = [particle for particle in particles if (particle.lifetime > 0)] #移除週期結束的粒子
         for particle in particles:
@@ -561,7 +564,7 @@ def start_tkinter():
     #設定
     root = ttk.Window(themename = "superhero")
     root.title('Setting')
-    root.geometry('640x360')
+    root.geometry('540x360')
 
     #全域變數
     vars_dict = {
@@ -586,7 +589,7 @@ def start_tkinter():
             #計算精度，若有 n 隻 bird ，則每隻 bird 需要與 n-1 隻 bird 互動，
             #為提升效能我這裡只讓 bird 與隨機 (n-1) * Movement_Accuracy 隻 bird 互動
             #另一種想法是讓每隻 bird 有 1 - Movement_Accuracy 的機率"不合群"，違背自然法則，模擬自然的隨機性
-            "Movement_Accuracy": ttk.DoubleVar(value = 0.5), # bird 不合群率
+            "Movement_Accuracy": ttk.IntVar(value = 50), # bird 不合群率
         },
         "Predator": {
             "Number": ttk.IntVar(value = 3), # predator 數量
@@ -715,7 +718,7 @@ def start_tkinter():
 
         def update_label(v):
             if isinstance(var, ttk.DoubleVar):
-                val_label.config(text = f"{float(v):.2f}")
+                val_label.config(text = f"{float(v):.1f}")
             else:
                 val_label.config(text = str(int(float(v))))
 
@@ -746,7 +749,7 @@ def start_tkinter():
     Overall_scrollable_frame, overall_canvas = create_scrollable_frame(setting_overall)
 
     add_slider(Overall_scrollable_frame, "Bounce Damping", vars_dict["Overall"]["Bounce_Damping"], 0, 10, step = 0.1, section = "Overall")
-    add_slider(Overall_scrollable_frame, "Damping", vars_dict["Overall"]["Damping"], 0, 1000, step = 1, section = "Overall")
+    add_slider(Overall_scrollable_frame, "Damping(0.001)", vars_dict["Overall"]["Damping"], 0, 100, step = 1, section = "Overall")
     
     # ======== 鳥群 ========
     bird_scrollable_frame, bird_canvas = create_scrollable_frame(setting_bird)  
@@ -761,7 +764,7 @@ def start_tkinter():
     add_slider(bird_scrollable_frame, "Cohesion Weight", vars_dict["Bird"]["Cohesion_Weight"], 0, 20, step = 0.1, section = "Bird")
     add_slider(bird_scrollable_frame, "Flee Weight", vars_dict["Bird"]["Flee_Weight"], 0, 20, step = 0.1, section = "Bird")
     add_slider(bird_scrollable_frame, "Alert Radius", vars_dict["Bird"]["Alert_Radius"], 0, 200, step = 1, section = "Bird")
-    add_slider(bird_scrollable_frame, "Movement Accuracy", vars_dict["Bird"]["Movement_Accuracy"], 0, 1, step = 0.01, section = "Bird")
+    add_slider(bird_scrollable_frame, "Movement Accuracy(%)", vars_dict["Bird"]["Movement_Accuracy"], 0, 100, step = 1, section = "Bird")
 
     # ======== 掠食者 ========
     predator_scrollable_frame, predator_canvas = create_scrollable_frame(setting_predator)
