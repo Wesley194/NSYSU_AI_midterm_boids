@@ -36,28 +36,26 @@
 ## class Animal
 ### 屬性
   - 自行設計
-### 方法
-#### draw (繪圖)
+### draw (繪圖)
   - AI實作
   - 三角形標示方向參考 [online boids](https://boids.dan.onl/)
-#### apply_bounce (碰撞處理)  
+### apply_bounce (碰撞處理)  
   - AI設計實作
   - 嘗試過多邊形碰撞，但後來改用效率較佳的圓形碰撞
-#### basis_update (更新狀態)
+### basis_update (更新狀態)
   - 自行設計實作
 
 ## class Bird (繼承自 Animal)
 ### 屬性
   - 自行設計實作
-### 方法
-#### apply_force (boids 三種規則)
+### apply_force (boids 三種規則)
   - AI設計實作
   - 自行整合優化
-#### flee_predator (逃離掠食者)
+### flee_predator (逃離掠食者)
   - 自行設計實作
-#### mouse_activity (Bird 靠近或遠離滑鼠)
+### mouse_activity (Bird 靠近或遠離滑鼠)
   - 自行設計實作
-#### update (更新狀態)
+### update (更新狀態)
   - 自行設計實作
 
 ## class Predator (繼承自 Animal)
@@ -71,7 +69,7 @@
 
 ## ttk 調參數視窗
   - AI實作
-  - 自行整合優化
+  - 人類整合優化
 ## 其他
 ### 值得一提的功能
 以下皆是人類設計實作
