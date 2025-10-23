@@ -35,7 +35,7 @@
 # 貢獻表
 ## class Animal
 ### 屬性
-自行設計
+  - 自行設計
 ### 方法
 #### draw (繪圖)
   - AI實作
@@ -44,30 +44,30 @@
   - AI設計實作
   - 嘗試過多邊形碰撞，但後來改用效率較佳的圓形碰撞
 #### basis_update (更新狀態)
-自行設計實作
+  - 自行設計實作
 
 ## class Bird (繼承自 Animal)
 ### 屬性
-自行設計實作
+  - 自行設計實作
 ### 方法
 #### apply_force (boids 三種規則)
   - AI設計實作
   - 自行整合優化
 #### flee_predator (逃離掠食者)
-自行設計實作
+  - 自行設計實作
 #### mouse_activity (Bird 靠近或遠離滑鼠)
-自行設計實作
+  - 自行設計實作
 #### update (更新狀態)
-自行設計實作
+  - 自行設計實作
 
 ## class Predator (繼承自 Animal)
-全部都是人類設計和實作
+  - 全部都是人類設計和實作
 
 ## class Particle
-全部都是人類設計和實作
+  - 全部都是人類設計和實作
 
 ## class Obstacle
-AI設計實作
+  - AI設計實作
 
 ## ttk 調參數視窗
   - AI實作
