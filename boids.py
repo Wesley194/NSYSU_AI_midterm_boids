@@ -599,7 +599,7 @@ def start_tkinter():
             "Perception_Radius": ttk.IntVar(value = 60), # predator 觀察範圍
             "Separation_Weight": ttk.DoubleVar(value = 1), # predator 分離力
             "Track_Weight": ttk.DoubleVar(value = 2), # predator 追蹤力
-            "Eat_Radius": ttk.IntVar(value = 5), # predator 捕食範圍
+            "Eat_Radius": ttk.IntVar(value = 8), # predator 捕食範圍
         },
         "Obstacle": {
             "Number": ttk.IntVar(value = 4), # obstacle 數量
@@ -756,7 +756,7 @@ def start_tkinter():
 
     add_slider(bird_scrollable_frame, "Bird Number", vars_dict["Bird"]["Number"], 0, 1000, step = 1, section = "Bird")
     add_slider(bird_scrollable_frame, "Bird Size", vars_dict["Bird"]["Size"], 1, 100, step = 1, section = "Bird")
-    add_slider(bird_scrollable_frame, "Min Speed", vars_dict["Bird"]["MIN_Speed"], 0, 400, step = 1, section = "Bird")
+    add_slider(bird_scrollable_frame, "Min Speed", vars_dict["Bird"]["MIN_Speed"], 1, 400, step = 1, section = "Bird")
     add_slider(bird_scrollable_frame, "Max Speed Multiplier", vars_dict["Bird"]["MAX_Speed_Multiplier"], 1, 20, step = 0.1, section = "Bird")
     add_slider(bird_scrollable_frame, "Perception Radius", vars_dict["Bird"]["Perception_Radius"], 0, 200, step = 1, section = "Bird")
     add_slider(bird_scrollable_frame, "Separation Weight", vars_dict["Bird"]["Separation_Weight"], 0, 20, step = 0.1, section = "Bird")
