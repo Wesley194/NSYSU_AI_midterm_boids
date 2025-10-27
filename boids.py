@@ -251,7 +251,7 @@ def run_pygame(shared_state, state_lock, stop_event):
                 super(Bird,self).basis_update(Bird_MAX_Speed, Bird_MIN_Speed, obstacles)
 
                 #更改顏色/大小    
-                self.color = Bird_Color_Slow+Bird_Color_ChangeRate * ((self.speed-Bird_MIN_Speed) / (Bird_MAX_Speed-Bird_MIN_Speed))
+                self.color = Bird_Color_Slow+Bird_Color_ChangeRate * ((self.speed-Bird_MIN_Speed) / (Bird_MAX_Speed-Bird_MIN_Speed) if (Bird_MAX_Speed-Bird_MIN_Speed>0) else 0)
                 self.size = Bird_Size
             elif (self.situation == "dying"):
                 #死亡後:本體顏色漸暗
@@ -456,6 +456,11 @@ def run_pygame(shared_state, state_lock, stop_event):
 
     # tick
     while not stop_event.is_set():
+        #暫停
+        if shared_state['Overall']['Pause']:
+            Timer.tick(shared_state['Overall']['FPS']) #處理時間
+            continue
+
         #取得數值
         Damping = shared_state["Overall"]["Damping"]/1000
         Movement_Accuracy = shared_state['Bird']['Movement_Accuracy']/100
@@ -564,7 +569,7 @@ def start_tkinter():
     #設定
     root = ttk.Window(themename = "superhero")
     root.title('Setting')
-    root.geometry('540x360')
+    root.geometry('580x640')
 
     #全域變數
     vars_dict = {
@@ -572,7 +577,8 @@ def start_tkinter():
             "DT": ttk.IntVar(value = 0), #畫面更新率
             "FPS": ttk.IntVar(value = 60), #每秒幀數
             "Bounce_Damping": ttk.DoubleVar(value = 0.8), # bird 碰撞時能量遞減
-            "Damping" : ttk.IntVar(value = 2) #阻力
+            "Damping" : ttk.IntVar(value = 2), #阻力
+            "Pause" : ttk.BooleanVar(value = False) #是否暫停
         },
         "Bird": {
             "Number": ttk.IntVar(value = 300), # bird 數量
@@ -580,7 +586,7 @@ def start_tkinter():
             "MIN_Speed": ttk.IntVar(value = 20), # bird 最小速度
             "MAX_Speed_Multiplier": ttk.DoubleVar(value = 10.0), # bird 最大速度
             "Perception_Radius": ttk.IntVar(value = 30), # bird 觀察範圍
-            "Separation_Weight": ttk.DoubleVar(value = 1), #b ird 分離力最大值
+            "Separation_Weight": ttk.DoubleVar(value = 1), #bird 分離力最大值
             "Alignment_Weight": ttk.DoubleVar(value = 1), # bird 對齊力最大值
             "Cohesion_Weight": ttk.DoubleVar(value = 1), # bird 聚集力最大值
             "Flee_Weight": ttk.DoubleVar(value = 4), # bird 逃跑力最大值
@@ -652,6 +658,9 @@ def start_tkinter():
     val_label = ttk.Label(right_topbar, text = "FPS: 0", width = 10)
     val_label.pack(side = "right", padx = 5)
     root.after(100, get_FPS)
+    pause_button = ttk.Button(right_topbar, text = "||", bootstyle = "outline-light", command = (lambda : switch_Pause())).pack(side = "right", padx = 5)
+    def switch_Pause():
+        shared_state["Overall"]["Pause"]=not shared_state["Overall"]["Pause"]
 
     #垂直滾動區域
     def create_scrollable_frame(parent):
@@ -771,7 +780,7 @@ def start_tkinter():
 
     add_slider(predator_scrollable_frame, "Predator Number", vars_dict["Predator"]["Number"], 0, 50, step = 1, section = "Predator")
     add_slider(predator_scrollable_frame, "Predator Size", vars_dict["Predator"]["Size"], 1, 100, step = 1, section = "Predator")
-    add_slider(predator_scrollable_frame, "Min Speed", vars_dict["Predator"]["MIN_Speed"], 0, 400, step = 1, section = "Predator")
+    add_slider(predator_scrollable_frame, "Min Speed", vars_dict["Predator"]["MIN_Speed"], 1, 400, step = 1, section = "Predator")
     add_slider(predator_scrollable_frame, "Max Speed Multiplier", vars_dict["Predator"]["MAX_Speed_Multiplier"], 1, 20,step = 0.1, section = "Predator")
     add_slider(predator_scrollable_frame, "Perception Radius", vars_dict["Predator"]["Perception_Radius"], 0, 200, step = 1, section = "Predator")
     add_slider(predator_scrollable_frame, "Separation Weight", vars_dict["Predator"]["Separation_Weight"], 0, 20, step = 0.1, section = "Predator")
@@ -788,10 +797,13 @@ def start_tkinter():
         stop_event.set()
         root.destroy()
     
-    def update_shared_state():
+    def update_shared_state(canNotModify=["DT","Pause"]):
         for section, vars_in_section in vars_dict.items():
             for key, var in vars_in_section.items():
-                shared_state[section][key] = var.get()
+                if section=="Overall" and key in canNotModify:
+                    continue
+                else:
+                    shared_state[section][key] = var.get()
         root.after(100, update_shared_state)      
     
     def check_pygame_stop():
