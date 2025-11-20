@@ -3,7 +3,7 @@ import numpy.random as random
 import numpy as np
 import ttkbootstrap as ttk
 import threading
-
+import json
 
 #setting
 SCREEN_WIDTH = 1280
@@ -21,53 +21,16 @@ def run_pygame(shared_state, state_lock, stop_event):
     Screen = pygame.display.set_mode((SCREEN_WIDTH,SCREEN_HEIGHT))
     pygame.display.set_caption('boids V3.0.0')
     Timer = pygame.time.Clock()
-
-    #載入圖片、字體
-    # Font = os.path.join("TaipeiSansTCBeta-Regular.ttf")
+    
+    # load setting
+    with open("data/setting.json", "r") as f:
+        Setting = json.load(f)
 
     #全域變數
-    Damping = 2e-3 #阻力
-
-    Bird_Number = 300 #bird 數量
-    Bird_Size = 8 #bird 大小
-    Bird_MAX_Speed = 200 #bird 最大速度
-    Bird_MIN_Speed = 20 #bird 最小速度
-    Bird_Color_Slow = pygame.math.Vector3(75,76,255) #bird 最慢速顏色
-    Bird_Color_Fast = pygame.math.Vector3(63,255,50) #bird 最快速顏色
+    Bird_Color_Slow = pygame.math.Vector3(*Setting["Overall_Bird"]["Color_Slow"]) #bird 最慢速顏色
+    Bird_Color_Fast = pygame.math.Vector3(*Setting["Overall_Bird"]["Color_Fast"]) #bird 最快速顏色
     Bird_Color_ChangeRate = Bird_Color_Fast-Bird_Color_Slow
-    Bird_Perception_Radius = 30 #bird 觀察範圍
-    Bird_Separation_Weight = 1 #bird 分離力最大值
-    Bird_Alignment_Weight = 1 #bird 對齊力最大值
-    Bird_Cohesion_Weight = 1 #bird 聚集力最大值
-    Bird_Flee_Weight = 4 #bird 逃跑力最大值
-    Bird_Alert_Radius = 50 #bird 警戒範圍
     Bird_Mouse_Activity = {"pos":(0,0),"click":0}
-
-    Predator_Number = 3 #Predator 數量
-    Predator_Size = 10 #Predator 大小
-    Predator_MIN_Speed = 60 #Predator 最小速度
-    Predator_MAX_Speed = 170 #Predator 最大速度
-    Predator_Perception_Radius = 60 #Predator 觀察範圍
-    Predator_Track_Weight = 2 #Predator 追蹤力
-    Predator_Separation_Weight = 1 #Predator 分離力
-    Predator_Eat_Radius = 8 #Predator 捕食範圍
-
-    Particle_Size = 10 #粒子大小
-    Particle_Num = 3 #每次動物死亡，出現的粒子數
-    Particle_Lifetime = 25 #粒子的生命週期 (tick)
-    Particle_Radious = 1 #粒子半徑
-    Particle_MIN_Speed = 15 #粒子的最小速度
-    Particle_MAX_Speed = 25 #粒子的最大速度
-    Particle_offset_angle = 120 #粒子init後和輸入的angle最大差值
-
-    Obstacle_Number = 4 # Obstacle 數量
-    Obstacle_Size = 80 # Obstacle 大小
-    Bounce_Damping = 0.8 # bird 碰撞時能量遞減
-
-    # 計算精度，若有 n 隻 bird ，則每隻 bird 需要與 n-1 隻 bird 互動，
-    # 為提升效能我這裡只讓 bird 與隨機 (n-1)*Movement_Accuracy 隻 bird 互動
-    # 另一種想法是讓每隻 bird 有 Movement_Accuracy 的機率"不合群"，違背自然法則，模擬自然的隨機性
-    Movement_Accuracy = 0.5
 
     DT=0 #每楨之間時間間隔，確保不同楨率下動畫表現一致
 
@@ -110,7 +73,7 @@ def run_pygame(shared_state, state_lock, stop_event):
             self.apply_bounce(obstacles)
 
             #更改速度
-            self.speed *= (1 - Damping)
+            self.speed *= (1 - Setting["Overall"]["Damping"])
             self.speed = min(max(self.speed, MIN_SPPED), MAX_SPEED)
             self.velocity = self.direction * self.speed * DT
 
@@ -138,9 +101,10 @@ def run_pygame(shared_state, state_lock, stop_event):
                     {'x': random.randint(0, SCREEN_WIDTH), 'y': SCREEN_HEIGHT}
                 ]
                 pos = random.choice(edges)
-            super(Bird,self).__init__(pos, Bird_Size, (Bird_MIN_Speed + Bird_MAX_Speed) / 2) 
+            self.Attribute = Setting["Bird"].copy()
+            super(Bird,self).__init__(pos, self.Attribute["Size"], (self.Attribute["MIN_Speed"] + self.Attribute["MAX_Speed"]) / 2) 
         
-        def apply_force(self, boids):
+        def apply_force(self, boids, Target):
             separation_force = pygame.math.Vector2(0, 0) #分離推力
             alignment_force = pygame.math.Vector2(0, 0) #對齊力
             cohesion_force = pygame.math.Vector2(0, 0) #聚集力
@@ -150,7 +114,7 @@ def run_pygame(shared_state, state_lock, stop_event):
             neighbor_count = 0 #紀錄偵測到的近鄰數量
 
             #遍歷其他的 boids
-            for i in np.random.choice(np.arange(0, Bird_Number), size = (int(Bird_Number * Movement_Accuracy), ), replace = False):
+            for i in Target:
                 other = boids[i]
                 #確保不是自己且對象是存活的
                 if other is not self and other.situation == "alive":
@@ -158,9 +122,9 @@ def run_pygame(shared_state, state_lock, stop_event):
                     distance = self.position.distance_to(other.position)
 
                     #檢查距離是否在排斥範圍內
-                    if 0 < distance < Bird_Perception_Radius:
+                    if 0 < distance < self.Attribute["Perception_Radius"]:
                         #計算推離力
-                        separation_force += (self.position - other.position).normalize() * (Bird_MAX_Speed / distance)
+                        separation_force += (self.position - other.position).normalize() * (self.Attribute["MAX_Speed"] / distance)
                         #計算對齊力
                         alignment_force += other.velocity
                         #計算聚集中心
@@ -173,25 +137,25 @@ def run_pygame(shared_state, state_lock, stop_event):
                 #計算推離力
                 if separation_force.length_squared() > 0:
                     separation_force /= neighbor_count
-                    if separation_force.length_squared() > Bird_Separation_Weight**2:
-                        separation_force.scale_to_length(Bird_Separation_Weight)
+                    if separation_force.length_squared() > self.Attribute["Separation_Weight"]**2:
+                        separation_force.scale_to_length(self.Attribute["Separation_Weight"])
 
                 #計算對齊力
                 #對齊力 = 理想速度 (平均速度 * 最大速度) - 目前速度
                 if alignment_force.length_squared() > 0:
                     alignment_force /= neighbor_count
-                    alignment_force = alignment_force.normalize() * Bird_MAX_Speed - self.velocity
-                    if alignment_force.length_squared() > Bird_Alignment_Weight**2:
-                        alignment_force.scale_to_length(Bird_Alignment_Weight)
+                    alignment_force = alignment_force.normalize() * self.Attribute["MAX_Speed"] - self.velocity
+                    if alignment_force.length_squared() > self.Attribute["Alignment_Weight"]**2:
+                        alignment_force.scale_to_length(self.Attribute["Alignment_Weight"])
 
                 #計算聚集力
                 #往質量中心移動
                 center_of_mass /= neighbor_count
                 cohesion_force = center_of_mass - self.position
                 if cohesion_force.length_squared() > 0:
-                    cohesion_force = cohesion_force.normalize() * Bird_MAX_Speed - self.velocity
-                    if cohesion_force.length_squared() > Bird_Cohesion_Weight**2:
-                        cohesion_force.scale_to_length(Bird_Cohesion_Weight)
+                    cohesion_force = cohesion_force.normalize() * self.Attribute["MAX_Speed"] - self.velocity
+                    if cohesion_force.length_squared() > self.Attribute["Cohesion_Weight"]**2:
+                        cohesion_force.scale_to_length(self.Attribute["Cohesion_Weight"])
 
             return separation_force + alignment_force + cohesion_force 
 
@@ -204,25 +168,25 @@ def run_pygame(shared_state, state_lock, stop_event):
                 distance = distance_vector.length()
 
                 #檢查是否在掠食者的捕獲範圍內
-                if distance < Predator_Eat_Radius:
+                if distance < predator.Attribute["Eat_Radius"]:
                     self.situation = "dying"
                     self.speed = 0
                     #死亡後觸發粒子
                     pos = {'x': self.position.x, 'y': self.position.y}
-                    particles.extend([Particle(pos,self.direction) for _ in range(Particle_Num)])
+                    particles.extend([Particle(pos,self.direction) for _ in range(Setting["Particle"]["Num"])])
 
                 #檢查是否在逃跑範圍內
-                if distance < Bird_Alert_Radius and distance > 0:
+                if distance < self.Attribute["Alert_Radius"] and distance > 0:
                     #施加一個強大的推力
-                    flee_force += distance_vector.normalize() * Bird_MAX_Speed / distance
+                    flee_force += distance_vector.normalize() * self.Attribute["MAX_Speed"] / distance
                     neighbor_count += 1
 
             if neighbor_count > 0:
                 #計算逃跑力
                 if flee_force.length_squared() > 0:
                     flee_force /= neighbor_count
-                    if flee_force.length_squared() > Bird_Flee_Weight**2:
-                        flee_force.scale_to_length(Bird_Flee_Weight)
+                    if flee_force.length_squared() > self.Attribute["Flee_Weight"]**2:
+                        flee_force.scale_to_length(self.Attribute["Flee_Weight"])
             return flee_force
 
         #當滑鼠左鍵按下時，附近的鳥群要遠離鼠標
@@ -234,25 +198,26 @@ def run_pygame(shared_state, state_lock, stop_event):
                 distance_vector = Bird_Mouse_Activity["click"]*(
                     self.position - pygame.Vector2(Bird_Mouse_Activity["pos"][0], Bird_Mouse_Activity["pos"][1]))
                 distance = distance_vector.length()
-                if 0 < distance < Bird_Alert_Radius:
-                    mouse_force = distance_vector.normalize()*Bird_MAX_Speed / distance
-                    if mouse_force.length_squared() > Bird_Flee_Weight**2:
-                        mouse_force.scale_to_length(Bird_Flee_Weight)
+                if 0 < distance < self.Attribute["Alert_Radius"]:
+                    mouse_force = distance_vector.normalize()*self.Attribute["MAX_Speed"] / distance
+                    if mouse_force.length_squared() > self.Attribute["Flee_Weight"]**2:
+                        mouse_force.scale_to_length(self.Attribute["Flee_Weight"])
             return mouse_force
 
-        def update(self, all_boids, obstacles, predators):         
+        def update(self, all_boids, obstacles, predators, Target):         
             if (self.situation == "alive"):
                 #調整速度
-                force = self.apply_force(all_boids) + self.flee_predator(predators) + self.mouse_activity() #計算作用力
+                force = self.apply_force(all_boids, Target) + self.flee_predator(predators) + self.mouse_activity() #計算作用力
                 self.direction = (self.direction + force).normalize() #調整方向
                 self.speed += force.length() #調整速率
 
                 #實際運動
-                super(Bird,self).basis_update(Bird_MAX_Speed, Bird_MIN_Speed, obstacles)
+                super(Bird,self).basis_update(self.Attribute["MAX_Speed"], self.Attribute["MIN_Speed"], obstacles)
 
-                #更改顏色/大小    
-                self.color = Bird_Color_Slow+Bird_Color_ChangeRate * ((self.speed-Bird_MIN_Speed) / (Bird_MAX_Speed-Bird_MIN_Speed) if (Bird_MAX_Speed-Bird_MIN_Speed>0) else 0)
-                self.size = Bird_Size
+                #更改顏色/大小
+                OMxS = Setting["Overall_Bird"]["MAX_Speed"]
+                OMnS = Setting["Overall_Bird"]["MIN_Speed"]
+                self.color = Bird_Color_Slow+(Bird_Color_ChangeRate)*((self.speed-OMnS) / (OMxS-OMnS) if (OMxS-OMnS>0) else 1)
             elif (self.situation == "dying"):
                 #死亡後:本體顏色漸暗
                 self.color = (self.color[0] * 0.97, self.color[1] * 0.97, self.color[2] * 0.97)
@@ -270,12 +235,13 @@ def run_pygame(shared_state, state_lock, stop_event):
                     {'x': random.randint(0, SCREEN_WIDTH), 'y': SCREEN_HEIGHT}
                 ]
                 pos = random.choice(edges)
-            super(Predator, self).__init__(pos, Predator_Size, Predator_MAX_Speed, color=(255, 30, 45))
+            self.Attribute = Setting["Predator"]
+            super(Predator, self).__init__(pos, self.Attribute["Size"], self.Attribute["MAX_Speed"], color=(255, 30, 45))
         
         #追蹤 bird
         def apply_track(self, all_boids):
             track_force = pygame.math.Vector2(0, 0) #追蹤力
-            TRACK_RADIUS_SQ = Predator_Perception_Radius ** 2
+            TRACK_RADIUS_SQ = self.Attribute["Perception_Radius"] ** 2
             if all_boids:
                 neighbor_count = 0 # 紀錄偵測到的近鄰數量
 
@@ -290,9 +256,9 @@ def run_pygame(shared_state, state_lock, stop_event):
                 if neighbor_count > 0:
                     track_force /= neighbor_count
                     if track_force.length_squared() > 0:
-                        track_force = track_force.normalize() * Predator_MAX_Speed - self.velocity
-                        if track_force.length_squared() > Predator_Track_Weight ** 2:
-                            track_force.scale_to_length(Predator_Track_Weight)
+                        track_force = track_force.normalize() * self.Attribute["MAX_Speed"] - self.velocity
+                        if track_force.length_squared() > self.Attribute["Track_Weight"] ** 2:
+                            track_force.scale_to_length(self.Attribute["Track_Weight"])
 
             return track_force
         
@@ -306,17 +272,17 @@ def run_pygame(shared_state, state_lock, stop_event):
                 distance = distance_vector.length()
 
                 #檢查是否在觀察範圍內
-                if distance < Predator_Perception_Radius and distance > 0:
+                if distance < self.Attribute["Perception_Radius"] and distance > 0:
                     #施加推力
-                    separation_force += distance_vector.normalize() * Predator_Perception_Radius / distance
+                    separation_force += distance_vector.normalize() * self.Attribute["Perception_Radius"] / distance
                     neighbor_count += 1
 
             if neighbor_count > 0:
                 #計算分離力
                 if separation_force.length_squared() > 0:
                     separation_force /= neighbor_count
-                    if separation_force.length_squared() > Predator_Separation_Weight**2:
-                        separation_force.scale_to_length(Predator_Separation_Weight)
+                    if separation_force.length_squared() > self.Attribute["Separation_Weight"]**2:
+                        separation_force.scale_to_length(self.Attribute["Separation_Weight"])
 
             return separation_force
         
@@ -326,19 +292,19 @@ def run_pygame(shared_state, state_lock, stop_event):
             self.speed += force.length() #調整速率
 
             #調整大小
-            self.size = Predator_Size
+            self.size = self.Attribute["Size"]
 
             #實際運動
-            super(Predator, self).basis_update(Predator_MAX_Speed, Predator_MIN_Speed, obstacles)
+            super(Predator, self).basis_update(self.Attribute["MAX_Speed"], self.Attribute["MIN_Speed"], obstacles)
 
 
     class Particle(Animal):
         def __init__(self, pos, dir):
-            self.speed = random.randint(Particle_MIN_Speed, Particle_MAX_Speed)
-            super(Particle,self).__init__(pos, Particle_Size, self.speed)
-            self.lifetime = Particle_Lifetime
+            self.speed = random.randint(Setting["Particle"]["MIN_Speed"], Setting["Particle"]["MAX_Speed"])
+            super(Particle,self).__init__(pos, Setting["Particle"]["Size"], self.speed)
+            self.lifetime = Setting["Particle"]["Lifetime"]
             self.direction = dir
-            self.direction.rotate_ip(random.randint(-Particle_offset_angle, Particle_offset_angle))
+            self.direction.rotate_ip(random.randint(-Setting["Particle"]["offset_angle"], Setting["Particle"]["offset_angle"]))
 
         def update(self):
             self.velocity = self.direction*self.speed*DT
@@ -349,7 +315,7 @@ def run_pygame(shared_state, state_lock, stop_event):
 
         def draw(self, screen):
             #繪製圓形
-            pygame.draw.circle(screen, self.color, (self.position[0], self.position[1]), Particle_Radious)
+            pygame.draw.circle(screen, self.color, (self.position[0], self.position[1]), Setting["Particle"]["Radious"])
 
 
     class Obstacle:
@@ -408,7 +374,7 @@ def run_pygame(shared_state, state_lock, stop_event):
 
                     #使用法線進行反射
                     boid.direction = boid.direction.reflect(normal_norm)
-                    boid.speed *= Bounce_Damping
+                    boid.speed *= Setting["Overall"]["Bounce_Damping"]
 
                     return True 
 
@@ -446,13 +412,13 @@ def run_pygame(shared_state, state_lock, stop_event):
 
     # main
     # load
-    birds = [Bird() for _ in range(Bird_Number)] #在邊緣生成 bird
-    predators = [Predator() for _ in range(Predator_Number)]
+    birds = [Bird() for _ in range(Setting["Overall_Bird"]["Number"])] #在邊緣生成 bird
+    predators = [Predator() for _ in range(Setting["Overall_Predator"]["Number"])]
     particles = []
     obstacles = [Obstacle(Obstacle.generate_random_polygon(
         random.randint(100, SCREEN_WIDTH - 100),
         random.randint(100, SCREEN_HEIGHT - 100),
-        Obstacle_Size, int(Obstacle_Size * 1.4), random.randint(4, 20))) for _ in range(Obstacle_Number)]
+        Setting["Obstacle"]["Size"], int(Setting["Obstacle"]["Size"] * 1.4), random.randint(4, 20))) for _ in range(Setting["Obstacle"]["Number"])]
 
     # tick
     while not stop_event.is_set():
@@ -460,35 +426,6 @@ def run_pygame(shared_state, state_lock, stop_event):
         if shared_state['Overall']['Pause']:
             Timer.tick(shared_state['Overall']['FPS']) #處理時間
             continue
-
-        #取得數值
-        Damping = shared_state["Overall"]["Damping"]/1000
-        Movement_Accuracy = shared_state['Bird']['Movement_Accuracy']/100
-        Bounce_Damping = shared_state['Overall']['Bounce_Damping']
-
-        Bird_Number = shared_state['Bird']['Number']
-        Bird_Size = shared_state['Bird']['Size']
-        Bird_MIN_Speed = shared_state['Bird']['MIN_Speed']
-        Bird_MAX_Speed = int(Bird_MIN_Speed*shared_state['Bird']['MAX_Speed_Multiplier'])
-        Bird_Perception_Radius = shared_state['Bird']['Perception_Radius']
-        Bird_Separation_Weight = shared_state['Bird']['Separation_Weight']
-        Bird_Alignment_Weight = shared_state['Bird']['Alignment_Weight']
-        Bird_Cohesion_Weight = shared_state['Bird']['Cohesion_Weight']
-        Bird_Alert_Radius = shared_state['Bird']['Alert_Radius']
-        Bird_Flee_Weight = shared_state['Bird']['Flee_Weight']
-
-        Predator_Number = shared_state['Predator']['Number']
-        Predator_Eat_Radius = shared_state['Predator']['Eat_Radius']
-        Predator_Size = shared_state['Predator']['Size']
-        Predator_MIN_Speed = shared_state['Predator']['MIN_Speed']
-        Predator_MAX_Speed = int(Predator_MIN_Speed*shared_state['Predator']['MAX_Speed_Multiplier'])
-        Predator_Perception_Radius = shared_state['Predator']['Perception_Radius']
-        Predator_Track_Weight = shared_state['Predator']['Track_Weight']
-        Predator_Separation_Weight = shared_state['Predator']['Separation_Weight']
-
-        Obstacle_Number = shared_state['Obstacle']['Number']
-        Obstacle_Size = shared_state['Obstacle']['Size']
-
 
         #取得動作
         for event in pygame.event.get():
@@ -516,7 +453,7 @@ def run_pygame(shared_state, state_lock, stop_event):
         desired_obs_count = int(shared_state['Obstacle'].get("Number", len(obstacles)))
         if desired_obs_count > len(obstacles):
             for _ in range(desired_obs_count - len(obstacles)):
-                size = int(shared_state['Obstacle'].get("Size", Obstacle_Size))
+                size = int(shared_state['Obstacle'].get("Size", Setting["Obstacle"]["Size"]))
                 obs = Obstacle(Obstacle.generate_random_polygon(
                     int(np.random.randint(100, SCREEN_WIDTH - 100)),
                     int(np.random.randint(100, SCREEN_HEIGHT - 100)),
@@ -535,13 +472,15 @@ def run_pygame(shared_state, state_lock, stop_event):
         #滑鼠點擊處理，點左鍵為1(驅離)，點右鍵為-1(聚集)
         Bird_Mouse_Activity["click"] = pygame.mouse.get_pressed()[0]-pygame.mouse.get_pressed()[2]
         
-        #更新死掉 bird 的狀態 
-        for i in range(Bird_Number):
+        #更新 bird 的狀態 
+        for i in range(Setting["Overall_Bird"]["Number"]):
             #死掉的 bird 在邊界重生
             if (birds[i].situation == "dead"):
                 birds[i] = Bird()
             else:
-                birds[i].update(birds,obstacles,predators) 
+                birds[i].update(birds,obstacles,predators,
+                    Target=np.random.choice(np.arange(0, Setting["Overall_Bird"]["Number"]), size = (int(Setting["Overall_Bird"]["Number"] * Setting["Overall_Bird"]["Movement_Accuracy"]), ), replace = False)
+                ) 
                 birds[i].draw(Screen)
         particles = [particle for particle in particles if (particle.lifetime > 0)] #移除週期結束的粒子
         for particle in particles:
