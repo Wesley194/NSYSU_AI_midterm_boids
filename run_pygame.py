@@ -1,6 +1,7 @@
 import pygame
 import numpy.random as random
 import numpy as np
+import read_data
 
 #setting
 SCREEN_WIDTH = 1280
@@ -23,6 +24,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
     Bird_Mouse_Activity = {"pos":(0,0),"click":0}
 
     DT=0 #每楨之間時間間隔，確保不同楨率下動畫表現一致
+    Running = True
 
     #物件定義
     class Animal:
@@ -411,15 +413,16 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
         Setting["Obstacle"]["Size"], int(Setting["Obstacle"]["Size"] * 1.4), random.randint(4, 20))) for _ in range(Setting["Obstacle"]["Number"])]
 
     # tick
-    while not stop_event.is_set():
+    while Running and (not stop_event or (stop_event and not stop_event.is_set())):
         #取得動作
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                stop_event.set()
+                if stop_event : stop_event.set()
+                Running = False
                 break
         
         #暫停
-        if shared_state_modify and shared_state_read:
+        if stop_event:
             if shared_state_read['Overall']['Pause']:
                 Timer.tick(Setting["Overall"]["FPS"]) #處理時間
                 continue
@@ -487,8 +490,10 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
         #計算 dt
         DT = Timer.tick(Setting['Overall']['FPS']) / 1000
-        if shared_state_modify and shared_state_read: shared_state_modify['Overall']['DT'] = DT
-
+        if stop_event: shared_state_modify['Overall']['DT'] = DT
 
     #結束清理
     pygame.quit()
+
+if __name__ == "__main__":
+    run_pygame(read_data.read_Setting())

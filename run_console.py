@@ -1,9 +1,13 @@
 import ttkbootstrap as ttk
 import run_pygame
 import threading
+import read_data
+
+#load data
+Pygame_Setting = read_data.read_Setting()
 
 # tkinter
-def set_tkinter(Pygame_Setting,stop_event=threading.Event()):
+def set_tkinter(stop_event=threading.Event()):
     #設定
     root = ttk.Window(themename = "superhero")
     root.title('Main Console')
@@ -267,3 +271,6 @@ def set_tkinter(Pygame_Setting,stop_event=threading.Event()):
     root.mainloop()
     
     stop_event.set()
+
+if __name__ == "__main__":
+    set_tkinter()
