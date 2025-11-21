@@ -7,10 +7,10 @@ def setGlobal():
             "Damping" : 2e-3, #阻力
         },
         "Overall_Bird":{
-            "Number": 300, # bird 數量
+            "Number": 100, # bird 數量
             "Color_Slow": (75,76,255), #bird 最慢速顏色
             "Color_Fast": (63,255,50), #bird 最快速顏色
-            "MAX_Speed": 1000,
+            "MAX_Speed": 500,
             "MIN_Speed": 10,
             # 計算精度，若有 n 隻 bird ，則每隻 bird 需要與 n-1 隻 bird 互動，
             # 為提升效能我這裡只讓 bird 與隨機 (n-1)*Movement_Accuracy 隻 bird 互動

@@ -43,19 +43,18 @@ def set_tkinter(stop_event=threading.Event()):
 
     vars_dict_read = {
         "Overall":{
-            "DT": ttk.IntVar(value = 0), #畫面更新率
+            "DT": ttk.StringVar(value = ""), #畫面更新率
         },
         "Bird": {
-            "Size": ttk.IntVar(value = 8), # bird 大小
-            "MIN_Speed": ttk.IntVar(value = 20), # bird 最小速度
-            "MAX_Speed_Multiplier": ttk.DoubleVar(value = 10.0), # bird 最大速度
-            "Perception_Radius": ttk.IntVar(value = 30), # bird 觀察範圍
-            "Separation_Weight": ttk.DoubleVar(value = 1), #bird 分離力最大值
-            "Alignment_Weight": ttk.DoubleVar(value = 1), # bird 對齊力最大值
-            "Cohesion_Weight": ttk.DoubleVar(value = 1), # bird 聚集力最大值
-            "Flee_Weight": ttk.DoubleVar(value = 4), # bird 逃跑力最大值
-            "Alert_Radius": ttk.IntVar(value = 50), # bird 警戒範圍
-            "Movement_Accuracy": ttk.IntVar(value = 50), # bird 不合群率
+            "Size": ttk.StringVar(value = ""), # bird 大小
+            "MIN_Speed": ttk.StringVar(value = ""), # bird 最小速度
+            "MAX_Speed": ttk.StringVar(value = ""), # bird 最大速度
+            "Perception_Radius": ttk.StringVar(value = ""), # bird 觀察範圍
+            "Separation_Weight": ttk.StringVar(value = ""), #bird 分離力最大值
+            "Alignment_Weight": ttk.StringVar(value = ""), # bird 對齊力最大值
+            "Cohesion_Weight": ttk.StringVar(value = ""), # bird 聚集力最大值
+            "Flee_Weight": ttk.StringVar(value = ""), # bird 逃跑力最大值
+            "Alert_Radius": ttk.StringVar(value = ""), # bird 警戒範圍
         }
     }
 
@@ -71,7 +70,7 @@ def set_tkinter(stop_event=threading.Event()):
         for title,params in vars_dict_modify.items()
     }
     shared_state_read = {
-        title: {key: value.get() for key,value in params.items()}
+        title: {key: 0 for key,value in params.items()}
         for title,params in vars_dict_read.items()
     }
     
@@ -192,7 +191,25 @@ def set_tkinter(stop_event=threading.Event()):
         slider.pack(side = "left", padx = 8, expand = True)
         ttk.Button(row_frame, text = "+", bootstyle = "secondary", width = 1, command = lambda: adjust(step)).pack(side = "left", padx = 2)
     
+    def add_readonly_value(parent, label_text, section, key):
+        row_frame = ttk.Frame(parent)
+        row_frame.pack(fill="x", pady=8, padx=10)
 
+        # 左邊文字標籤
+        ttk.Label(row_frame, text=label_text, width=20).pack(side="left", anchor="w")
+
+        # 顯示數值用的 Tk 變數
+        val_var = vars_dict_read[section][key]
+
+        # 顯示數值的 Label
+        ttk.Label(row_frame, textvariable=val_var, width=10, anchor="e").pack(side="left", padx=5)
+
+    def add_text_label(parent, label_text, font=None,color="#FFFFFF"):
+        row_frame = ttk.Frame(parent)
+        row_frame.pack(fill="x", pady=8, padx=10)
+        ttk.Label(row_frame, text=label_text, width=20, font=font, foreground=color).pack(side="left", anchor="w")
+
+    
     # ======== Console ========
     console_scrollable_frame, overall_canvas = create_scrollable_frame(Console_Window["Console"])
 
@@ -214,6 +231,16 @@ def set_tkinter(stop_event=threading.Event()):
 
     # ======== 監看視窗 ========
     overlook_scrollable_frame, predator_canvas = create_scrollable_frame(Console_Window["Overlook"])
+    add_text_label(overlook_scrollable_frame,"Bird",font=("Helvetica",14,"bold"),color="#EFA00B")
+    add_readonly_value(overlook_scrollable_frame, "Size", "Bird", "Size")
+    add_readonly_value(overlook_scrollable_frame, "MIN Speed", "Bird", "MIN_Speed")
+    add_readonly_value(overlook_scrollable_frame, "MAX Speed", "Bird", "MAX_Speed")
+    add_readonly_value(overlook_scrollable_frame, "Perception Radius", "Bird", "Perception_Radius")
+    add_readonly_value(overlook_scrollable_frame, "Separation Weight", "Bird", "Separation_Weight")
+    add_readonly_value(overlook_scrollable_frame, "Alignment Weight", "Bird", "Alignment_Weight")
+    add_readonly_value(overlook_scrollable_frame, "Cohesion Weight", "Bird", "Cohesion_Weight")
+    add_readonly_value(overlook_scrollable_frame, "Flee Weight", "Bird", "Flee_Weight")
+    add_readonly_value(overlook_scrollable_frame, "Alert Radius", "Bird", "Alert_Radius")
 
     
 
@@ -237,7 +264,10 @@ def set_tkinter(stop_event=threading.Event()):
                         Pygame_Setting["Overall_Bird"]["Movement_Accuracy"] = val/100
                 else :
                     Pygame_Setting[section][key] = val
-                
+
+        for section, vars_in_section in vars_dict_read.items():
+            for key, var in vars_in_section.items():
+                var.set(f"{float(shared_state_read[section][key]):.2f}")
         root.after(100, update_shared_state)      
     
     def check_pygame_stop():

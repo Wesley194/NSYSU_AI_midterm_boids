@@ -14,7 +14,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
     #初始化
     pygame.init()
     Screen = pygame.display.set_mode((SCREEN_WIDTH,SCREEN_HEIGHT))
-    pygame.display.set_caption('boids V3.0.0')
+    pygame.display.set_caption('boids V4.0.0')
     Timer = pygame.time.Clock()
 
     #全域變數
@@ -216,6 +216,18 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 if (self.color[0] <= 15):
                     self.situation = "dead"
 
+        @staticmethod
+        def reproduction():
+            pass
+
+        @staticmethod
+        def record_Attribute(all_boids):
+            L = len(all_boids)
+            for key in shared_state_modify["Bird"].keys():
+                shared_state_modify["Bird"][key] = 0
+            for boid in all_boids:
+                for key in shared_state_modify["Bird"].keys():
+                    shared_state_modify["Bird"][key] += boid.Attribute[key]/L
 
     class Predator(Animal):
         def __init__(self, pos = None):
@@ -457,6 +469,9 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
         elif desired_obs_count < len(obstacles):
             obstacles = obstacles[:desired_obs_count]
 
+        #統計資料
+        if stop_event:
+            Bird.record_Attribute(birds)
 
         #繪圖
         Screen.fill(BACKGROUND_COLOR)
@@ -476,13 +491,17 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                     Target=np.random.choice(np.arange(0, Setting["Overall_Bird"]["Number"]), size = (int(Setting["Overall_Bird"]["Number"] * Setting["Overall_Bird"]["Movement_Accuracy"]), ), replace = False)
                 ) 
                 birds[i].draw(Screen)
+
+        # 更新 particles
         particles = [particle for particle in particles if (particle.lifetime > 0)] #移除週期結束的粒子
         for particle in particles:
             particle.update()
             particle.draw(Screen)
+        # 更新 predator
         for predator in predators:
             predator.update(birds, obstacles, predators)
             predator.draw(Screen)
+        # 更新 obstacle
         for obstacle in obstacles:
             obstacle.draw(Screen)
 
