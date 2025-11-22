@@ -6,6 +6,10 @@ def setGlobal():
             "Bounce_Damping": 0.8, # bird 碰撞時能量遞減
             "Damping" : 2e-3, #阻力
         },
+        "Evolution":{
+            "Init_Mutation_Rate": 0.2,
+            "Mutation_Rate": 0.1
+        },
         "Overall_Bird":{
             "Number": 100, # bird 數量
             "Color_Slow": (75,76,255), #bird 最慢速顏色

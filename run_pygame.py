@@ -26,6 +26,17 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
     DT=0 #每楨之間時間間隔，確保不同楨率下動畫表現一致
     Running = True
 
+    #函數
+    def calculate_mutation(val,rate,isInt=False):
+        rate = random.uniform(1-rate, 1+rate)
+        if isInt: 
+            tmp = val*rate
+            Int_part = np.floor(tmp)
+            Float_part = tmp - Int_part
+            if random.rand()<Float_part: Int_part+=1
+            return int(Int_part)
+        else: return val*rate
+
     #物件定義
     class Animal:
         def __init__(self,pos,size,speed,color=(255, 255, 255)):
@@ -94,6 +105,8 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 ]
                 pos = random.choice(edges)
             self.Attribute = Setting["Bird"].copy()
+            for key,val in self.Attribute.items():
+                self.Attribute[key] = calculate_mutation(val, Setting["Evolution"]["Init_Mutation_Rate"])
             super(Bird,self).__init__(pos, self.Attribute["Size"], (self.Attribute["MIN_Speed"] + self.Attribute["MAX_Speed"]) / 2) 
         
         def apply_force(self, boids, Target):
@@ -111,7 +124,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 #確保不是自己且對象是存活的
                 if other is not self and other.situation == "alive":
                     #計算兩個 boid 之間的距離
-                    distance = self.position.distance_to(other.position)
+                    distance = self.position.distance_to(other.position)#-self.Attribute["size"]/2-other.Attribute["size"]/2
 
                     #檢查距離是否在排斥範圍內
                     if 0 < distance < self.Attribute["Perception_Radius"]:
@@ -160,7 +173,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 distance = distance_vector.length()
 
                 #檢查是否在掠食者的捕獲範圍內
-                if distance < predator.Attribute["Eat_Radius"]:
+                if distance < predator.Attribute["Eat_Radius"]+self.Attribute["size"]/2:
                     self.situation = "dying"
                     self.speed = 0
                     #死亡後觸發粒子
@@ -210,6 +223,8 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 OMxS = Setting["Overall_Bird"]["MAX_Speed"]
                 OMnS = Setting["Overall_Bird"]["MIN_Speed"]
                 self.color = Bird_Color_Slow+(Bird_Color_ChangeRate)*((self.speed-OMnS) / (OMxS-OMnS) if (OMxS-OMnS>0) else 1)
+                self.size = self.Attribute["Size"]
+            
             elif (self.situation == "dying"):
                 #死亡後:本體顏色漸暗
                 self.color = (self.color[0] * 0.97, self.color[1] * 0.97, self.color[2] * 0.97)
@@ -294,7 +309,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             force = self.apply_track(all_boids)+self.apply_separation(predators) #計算作用力
             self.direction = (self.direction+force).normalize() #調整方向
             self.speed += force.length() #調整速率
-
+           
             #調整大小
             self.size = self.Attribute["Size"]
 

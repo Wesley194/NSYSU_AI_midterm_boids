@@ -217,16 +217,21 @@ def set_tkinter(stop_event=threading.Event()):
     # ======== 模擬設定 ========
     simSet_scrollable_frame, bird_canvas = create_scrollable_frame(Console_Window["Sim Set"])  
 
+    add_text_label(simSet_scrollable_frame,"Overall",font=("Helvetica",14,"bold"),color="#EFA00B")
     add_slider(simSet_scrollable_frame, "Bounce Damping", vars_dict_modify["Overall"]["Bounce_Damping"], 0, 10, step = 0.1, section = "Overall")
     add_slider(simSet_scrollable_frame, "Damping(0.001)", vars_dict_modify["Overall"]["Damping"], 0, 100, step = 1, section = "Overall")
-    add_slider(simSet_scrollable_frame, "Predator Number", vars_dict_modify["Overall_Predator"]["Number"], 0, 50, step = 1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Predator Size", vars_dict_modify["Predator"]["Size"], 1, 100, step = 1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Predator Min Speed", vars_dict_modify["Predator"]["MIN_Speed"], 1, 400, step = 1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Predator Max Speed Multiplier", vars_dict_modify["Predator"]["MAX_Speed_Multiplier"], 1, 20,step = 0.1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Predator Perception Radius", vars_dict_modify["Predator"]["Perception_Radius"], 0, 200, step = 1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Predator Separation Weight", vars_dict_modify["Predator"]["Separation_Weight"], 0, 20, step = 0.1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Predator Track Weight", vars_dict_modify["Predator"]["Track_Weight"], 0, 20, step = 0.1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Predator Eat Radius", vars_dict_modify["Predator"]["Eat_Radius"], 0, 100, step = 1, section = "Predator")
+    
+    add_text_label(simSet_scrollable_frame,"Predator",font=("Helvetica",14,"bold"),color="#EFA00B")
+    add_slider(simSet_scrollable_frame, "Number", vars_dict_modify["Overall_Predator"]["Number"], 0, 50, step = 1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Size", vars_dict_modify["Predator"]["Size"], 1, 100, step = 1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Min Speed", vars_dict_modify["Predator"]["MIN_Speed"], 1, 400, step = 1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Max Speed Multiplier", vars_dict_modify["Predator"]["MAX_Speed_Multiplier"], 1, 20,step = 0.1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Perception Radius", vars_dict_modify["Predator"]["Perception_Radius"], 0, 200, step = 1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Separation Weight", vars_dict_modify["Predator"]["Separation_Weight"], 0, 20, step = 0.1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Track Weight", vars_dict_modify["Predator"]["Track_Weight"], 0, 20, step = 0.1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Eat Radius", vars_dict_modify["Predator"]["Eat_Radius"], 0, 100, step = 1, section = "Predator")
+    
+    add_text_label(simSet_scrollable_frame,"Obstacle",font=("Helvetica",14,"bold"),color="#EFA00B")
     add_slider(simSet_scrollable_frame, "Obstacle Number", vars_dict_modify["Obstacle"]["Number"], 0, 20, step = 1, section = "Obstacle")
 
     # ======== 監看視窗 ========
@@ -253,15 +258,15 @@ def set_tkinter(stop_event=threading.Event()):
         for section, vars_in_section in vars_dict_modify.items():
             for key, var in vars_in_section.items():
                 val = var.get()
-                if section not in Pygame_Setting or key not in Pygame_Setting[section]:
-                    shared_state_modify[section][key] = val
-                elif key in Specialize:
+                if key in Specialize:
                     if key=="Damping":
                         Pygame_Setting["Overall"]["Damping"] = val/1000
-                    elif key=="MAX_Speed_Multiplier":
+                    elif section=="Predator" and key=="MAX_Speed_Multiplier":
                         Pygame_Setting["Predator"]["MAX_Speed"] = int(Pygame_Setting["Predator"]["MIN_Speed"]*val)
                     elif key=="Movement_Accuracy":
                         Pygame_Setting["Overall_Bird"]["Movement_Accuracy"] = val/100
+                elif section not in Pygame_Setting or key not in Pygame_Setting[section]:
+                    shared_state_modify[section][key] = val
                 else :
                     Pygame_Setting[section][key] = val
 
