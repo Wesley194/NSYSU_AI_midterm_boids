@@ -55,6 +55,7 @@ def set_tkinter(stop_event=threading.Event()):
             "Cohesion_Weight": ttk.StringVar(value = ""), # bird 聚集力最大值
             "Flee_Weight": ttk.StringVar(value = ""), # bird 逃跑力最大值
             "Alert_Radius": ttk.StringVar(value = ""), # bird 警戒範圍
+            "Fitness": ttk.StringVar(value = ""), # bird 對環境的適應度
         }
     }
 
@@ -63,6 +64,7 @@ def set_tkinter(stop_event=threading.Event()):
             for key, var in vars_in_section.items():
                 if section in Pygame_Setting and key in Pygame_Setting[section]:
                     var.set(Pygame_Setting[section][key])
+    vars_dict_modify["Predator"]["MAX_Speed_Multiplier"].set(Pygame_Setting["Predator"]["MAX_Speed"]/Pygame_Setting["Predator"]["MIN_Speed"])
 
     # handle shared state
     shared_state_modify = {
@@ -219,7 +221,7 @@ def set_tkinter(stop_event=threading.Event()):
 
     add_text_label(simSet_scrollable_frame,"Overall",font=("Helvetica",14,"bold"),color="#EFA00B")
     add_slider(simSet_scrollable_frame, "Bounce Damping", vars_dict_modify["Overall"]["Bounce_Damping"], 0, 10, step = 0.1, section = "Overall")
-    add_slider(simSet_scrollable_frame, "Damping(0.001)", vars_dict_modify["Overall"]["Damping"], 0, 100, step = 1, section = "Overall")
+    add_slider(simSet_scrollable_frame, "Damping(0.0001)", vars_dict_modify["Overall"]["Damping"], 0, 1000, step = 1, section = "Overall")
     
     add_text_label(simSet_scrollable_frame,"Predator",font=("Helvetica",14,"bold"),color="#EFA00B")
     add_slider(simSet_scrollable_frame, "Number", vars_dict_modify["Overall_Predator"]["Number"], 0, 50, step = 1, section = "Predator")
@@ -246,6 +248,7 @@ def set_tkinter(stop_event=threading.Event()):
     add_readonly_value(overlook_scrollable_frame, "Cohesion Weight", "Bird", "Cohesion_Weight")
     add_readonly_value(overlook_scrollable_frame, "Flee Weight", "Bird", "Flee_Weight")
     add_readonly_value(overlook_scrollable_frame, "Alert Radius", "Bird", "Alert_Radius")
+    add_readonly_value(overlook_scrollable_frame, "Fitness", "Bird", "Fitness")
 
     
 
@@ -254,17 +257,13 @@ def set_tkinter(stop_event=threading.Event()):
         root.destroy()
     
     def update_shared_state():
-        Specialize = ("Damping","MAX_Speed_Multiplier","Movement_Accuracy")
+        Specialize = ("MAX_Speed_Multiplier")
         for section, vars_in_section in vars_dict_modify.items():
             for key, var in vars_in_section.items():
                 val = var.get()
                 if key in Specialize:
-                    if key=="Damping":
-                        Pygame_Setting["Overall"]["Damping"] = val/1000
-                    elif section=="Predator" and key=="MAX_Speed_Multiplier":
+                    if section=="Predator" and key=="MAX_Speed_Multiplier":
                         Pygame_Setting["Predator"]["MAX_Speed"] = int(Pygame_Setting["Predator"]["MIN_Speed"]*val)
-                    elif key=="Movement_Accuracy":
-                        Pygame_Setting["Overall_Bird"]["Movement_Accuracy"] = val/100
                 elif section not in Pygame_Setting or key not in Pygame_Setting[section]:
                     shared_state_modify[section][key] = val
                 else :

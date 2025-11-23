@@ -14,7 +14,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
     #初始化
     pygame.init()
     Screen = pygame.display.set_mode((SCREEN_WIDTH,SCREEN_HEIGHT))
-    pygame.display.set_caption('boids V4.0.0')
+    pygame.display.set_caption('boids V5.0.0')
     Timer = pygame.time.Clock()
 
     #全域變數
@@ -76,7 +76,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             self.apply_bounce(obstacles)
 
             #更改速度
-            self.speed *= (1 - Setting["Overall"]["Damping"])
+            self.speed *= (1 - Setting["Overall"]["Damping"]/10000)
             self.speed = min(max(self.speed, MIN_SPPED), MAX_SPEED)
             self.velocity = self.direction * self.speed * DT
 
@@ -95,7 +95,20 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 self.position.y = SCREEN_HEIGHT
 
     class Bird(Animal):
-        def __init__(self, pos=None):   
+        def __init__(self, pos=None, load_Setting=None):
+            if load_Setting:
+                self.Attribute = load_Setting
+            else:
+                self.Attribute = Setting["Bird"].copy()
+                for key,val in self.Attribute.items():
+                    self.Attribute[key] = calculate_mutation(val, Setting["Evolution"]["Init_Mutation_Rate"])
+            
+            for key,val in self.Attribute.items():
+                if key in Setting["Lower_Bound_Bird"].keys():
+                    self.Attribute[key] = max(val,Setting["Lower_Bound_Bird"][key])
+                if key in Setting["Upper_Bound_Bird"]:
+                    self.Attribute[key] = min(val,Setting["Upper_Bound_Bird"][key])
+
             if pos is None:
                 edges = [
                     {'x': 0, 'y': random.randint(0, SCREEN_HEIGHT)},           
@@ -104,9 +117,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                     {'x': random.randint(0, SCREEN_WIDTH), 'y': SCREEN_HEIGHT}
                 ]
                 pos = random.choice(edges)
-            self.Attribute = Setting["Bird"].copy()
-            for key,val in self.Attribute.items():
-                self.Attribute[key] = calculate_mutation(val, Setting["Evolution"]["Init_Mutation_Rate"])
+            
             super(Bird,self).__init__(pos, self.Attribute["Size"], (self.Attribute["MIN_Speed"] + self.Attribute["MAX_Speed"]) / 2) 
         
         def apply_force(self, boids, Target):
@@ -124,7 +135,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 #確保不是自己且對象是存活的
                 if other is not self and other.situation == "alive":
                     #計算兩個 boid 之間的距離
-                    distance = self.position.distance_to(other.position)#-self.Attribute["size"]/2-other.Attribute["size"]/2
+                    distance = self.position.distance_to(other.position)-other.Attribute["Size"]/2
 
                     #檢查距離是否在排斥範圍內
                     if 0 < distance < self.Attribute["Perception_Radius"]:
@@ -170,10 +181,10 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
             for predator in predators:
                 distance_vector = self.position - predator.position #從掠食者指向 boid 的向量
-                distance = distance_vector.length()
+                distance = distance_vector.length() - predator.Attribute["Size"]/2
 
                 #檢查是否在掠食者的捕獲範圍內
-                if distance < predator.Attribute["Eat_Radius"]+self.Attribute["size"]/2:
+                if distance < predator.Attribute["Eat_Radius"]+self.Attribute["Size"]/2:
                     self.situation = "dying"
                     self.speed = 0
                     #死亡後觸發粒子
@@ -220,10 +231,13 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 super(Bird,self).basis_update(self.Attribute["MAX_Speed"], self.Attribute["MIN_Speed"], obstacles)
 
                 #更改顏色/大小
-                OMxS = Setting["Overall_Bird"]["MAX_Speed"]
-                OMnS = Setting["Overall_Bird"]["MIN_Speed"]
-                self.color = Bird_Color_Slow+(Bird_Color_ChangeRate)*((self.speed-OMnS) / (OMxS-OMnS) if (OMxS-OMnS>0) else 1)
+                OMxS = Setting["Upper_Bound_Bird"]["MAX_Speed"]
+                OMnS = Setting["Lower_Bound_Bird"]["MIN_Speed"]
+                self.color = Bird_Color_Slow+(Bird_Color_ChangeRate)*((self.speed-OMnS) / (OMxS-OMnS) if (OMxS-OMnS>0) else 0)
                 self.size = self.Attribute["Size"]
+
+                #適應度評分
+                self.Attribute["Fitness"]+=DT
             
             elif (self.situation == "dying"):
                 #死亡後:本體顏色漸暗
@@ -232,8 +246,15 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                     self.situation = "dead"
 
         @staticmethod
-        def reproduction():
-            pass
+        def reproduction(birds):
+            W = np.array([obj.Attribute["Fitness"] for obj in birds])**Setting["Evolution"]["Reproduce_Weight"]
+            samples = np.random.choice(birds, size=2, replace=False, p=W / W.sum())
+            Attribute = Setting["Bird"].copy()
+            for key,val in Attribute.items():
+                Attribute[key] = calculate_mutation(
+                    np.mean([obj.Attribute[key] for obj in samples]), Setting["Evolution"]["Mutation_Rate"])
+            Attribute["Fitness"] = 0
+            return Bird(load_Setting=Attribute) # ,pos={'x':samples[0].position.x,'y':samples[0].position.y}
 
         @staticmethod
         def record_Attribute(all_boids):
@@ -288,7 +309,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
             for predator in predators:
                 distance_vector = self.position - predator.position
-                distance = distance_vector.length()
+                distance = distance_vector.length() - predator.Attribute["Size"]/2
 
                 #檢查是否在觀察範圍內
                 if distance < self.Attribute["Perception_Radius"] and distance > 0:
@@ -453,12 +474,14 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             if shared_state_read['Overall']['Pause']:
                 Timer.tick(Setting["Overall"]["FPS"]) #處理時間
                 continue
+        
+        # 全域變數更新
 
         #Bird 數量更新
         desired_Bird_count = int(Setting["Overall_Bird"]["Number"])
         if desired_Bird_count > len(birds):
             for _ in range(desired_Bird_count - len(birds)):
-               birds.append(Bird())
+               birds.append(Bird.reproduction(birds))
         elif desired_Bird_count < len(birds):
                birds = birds[:desired_Bird_count]
 
@@ -500,10 +523,10 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
         for i in range(Setting["Overall_Bird"]["Number"]):
             #死掉的 bird 在邊界重生
             if (birds[i].situation == "dead"):
-                birds[i] = Bird()
+                birds[i] = Bird.reproduction(birds)
             else:
                 birds[i].update(birds,obstacles,predators,
-                    Target=np.random.choice(np.arange(0, Setting["Overall_Bird"]["Number"]), size = (int(Setting["Overall_Bird"]["Number"] * Setting["Overall_Bird"]["Movement_Accuracy"]), ), replace = False)
+                    Target=np.random.choice(np.arange(0, Setting["Overall_Bird"]["Number"]), size = (int(Setting["Overall_Bird"]["Number"] * Setting["Overall_Bird"]["Movement_Accuracy"]/100), ), replace = False)
                 ) 
                 birds[i].draw(Screen)
 
