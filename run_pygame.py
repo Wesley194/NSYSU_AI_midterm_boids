@@ -277,30 +277,259 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 pos = random.choice(edges)
             self.Attribute = Setting["Predator"]
             super(Predator, self).__init__(pos, self.Attribute["Size"], self.Attribute["MAX_Speed"], color=(255, 30, 45))
-        
-        #追蹤 bird
-        def apply_track(self, all_boids):
+        @classmethod
+        def track1(self,all_boids):
+            '''
+            追視野範圍內的 bird 質量中心
+            '''
             track_force = pygame.math.Vector2(0, 0) #追蹤力
             TRACK_RADIUS_SQ = self.Attribute["Perception_Radius"] ** 2
-            if all_boids:
-                neighbor_count = 0 # 紀錄偵測到的近鄰數量
+            neighbor_count = 0 # 紀錄偵測到的近鄰數量
 
-                for bird in all_boids:
-                    if bird.situation != "alive":
+            for bird in all_boids:
+                if bird.situation != "alive":
+                    continue
+                forward_bird = bird.position - self.position
+                if TRACK_RADIUS_SQ > forward_bird.length_squared() > 0:
+                    track_force += forward_bird
+                    neighbor_count += 1
+
+            if neighbor_count > 0:
+                track_force /= neighbor_count
+                if track_force.length_squared() > 0:
+                    track_force = track_force.normalize() * self.Attribute["MAX_Speed"] - self.velocity
+                    if track_force.length_squared() > self.Attribute["Track_Weight"] ** 2:
+                        track_force.scale_to_length(self.Attribute["Track_Weight"])
+            return track_force
+        
+        def track2(self,all_boids):
+            '''
+            追視野範圍內最近的
+            '''
+            track_force = pygame.math.Vector2(0, 0) #追蹤力
+            TRACK_RADIUS_SQ = self.Attribute["Perception_Radius"] ** 2
+            min_D = TRACK_RADIUS_SQ
+            nearest = None
+            for bird in all_boids:
+                if bird.situation != "alive":
+                    continue
+                forward_bird = bird.position - self.position
+                if min_D > forward_bird.length_squared():
+                    min_D = forward_bird.length_squared()
+                    nearest = forward_bird
+            if nearest:
+                track_force = nearest
+                if track_force.length_squared() > 0:
+                    track_force = track_force.normalize() * self.Attribute["MAX_Speed"] - self.velocity
+                    if track_force.length_squared() > self.Attribute["Track_Weight"] ** 2:
+                        track_force.scale_to_length(self.Attribute["Track_Weight"])
+            return track_force
+        
+        def track3(self, all_boids):
+            '''
+            追視野範圍內最大群的
+            '''
+
+            # 初始追蹤力
+            track_force = pygame.math.Vector2(0, 0)
+
+            perception_radius = self.Attribute["Perception_Radius"]
+            track_radius_sq = perception_radius * perception_radius
+            group_radius = perception_radius * 0.5
+            group_radius_sq = group_radius * group_radius
+
+            max_speed = self.Attribute["MAX_Speed"]
+            max_track = self.Attribute["Track_Weight"]
+            max_track_sq = max_track * max_track
+
+            # 先收集視野範圍內的鳥的位置
+            birds_list = []
+            for bird in all_boids:
+                # 如果 all_boids 裡可能包含自己，順便排除掉
+                if bird is self or bird.situation != "alive":
+                    continue
+
+                offset = bird.position - self.position
+                if offset.length_squared() <= track_radius_sq:
+                    birds_list.append([bird.position.x, bird.position.y])
+
+            if not birds_list:
+                return track_force
+
+            birds = np.asarray(birds_list, dtype=float)
+            N = birds.shape[0]
+
+            # 只有一隻鳥就不用分群，直接追那隻即可
+            if N == 1:
+                center = birds[0]
+            else:
+                visited = np.zeros(N, dtype=bool)
+                largest_group = None
+
+                for i in range(N):
+                    if visited[i]:
                         continue
-                    forward_bird = bird.position - self.position
-                    if TRACK_RADIUS_SQ > forward_bird.length_squared():
-                        track_force += forward_bird
-                        neighbor_count += 1
 
-                if neighbor_count > 0:
-                    track_force /= neighbor_count
-                    if track_force.length_squared() > 0:
-                        track_force = track_force.normalize() * self.Attribute["MAX_Speed"] - self.velocity
-                        if track_force.length_squared() > self.Attribute["Track_Weight"] ** 2:
-                            track_force.scale_to_length(self.Attribute["Track_Weight"])
+                    stack = [i]
+                    visited[i] = True
+                    group = [i]
+
+                    while stack:
+                        j = stack.pop()
+
+                        # 找距離在 group_radius 內的鄰居
+                        diff = birds - birds[j]            # shape: (N, 2)
+                        d2 = np.einsum('ij,ij->i', diff, diff)  # 每行的平方距離
+
+                        neighbors = np.where((d2 <= group_radius_sq) & (~visited))[0]
+                        if neighbors.size > 0:
+                            visited[neighbors] = True
+                            stack.extend(neighbors.tolist())
+                            group.extend(neighbors.tolist())
+
+                    if (largest_group is None) or (len(group) > len(largest_group)):
+                        largest_group = group
+
+                center = birds[largest_group].mean(axis=0)
+
+            # 由 self.position 指向最大群中心的期望速度（seek）
+            desired = pygame.math.Vector2(center[0] - self.position.x,
+                                        center[1] - self.position.y)
+
+            if desired.length_squared() == 0:
+                return track_force
+
+            # 調整為最大速度
+            desired.scale_to_length(max_speed)
+
+            # steering = desired - current_velocity
+            track_force = desired - self.velocity
+
+            # 限制最大轉向力
+            if track_force.length_squared() > max_track_sq:
+                track_force.scale_to_length(max_track)
 
             return track_force
+
+        def track4(self, all_boids):
+            '''
+            追視野範圍內烙單的(最小群)
+            '''
+            # 初始追蹤力
+            track_force = pygame.math.Vector2(0, 0)
+
+            perception_radius = self.Attribute["Perception_Radius"]
+            track_radius_sq = perception_radius * perception_radius
+            group_radius = perception_radius * 0.5
+            group_radius_sq = group_radius * group_radius
+
+            max_speed = self.Attribute["MAX_Speed"]
+            max_track = self.Attribute["Track_Weight"]
+            max_track_sq = max_track * max_track
+
+            # 先收集「視野範圍內」的 bird 位置
+            birds_list = []
+            for bird in all_boids:
+                # 排除自己與死亡的
+                if bird is self or bird.situation != "alive":
+                    continue
+
+                offset = bird.position - self.position
+                if offset.length_squared() <= track_radius_sq:
+                    birds_list.append([bird.position.x, bird.position.y])
+
+            # 視野內沒有鳥
+            if not birds_list:
+                return track_force
+
+            birds = np.asarray(birds_list, dtype=float)
+            N = birds.shape[0]
+
+            # 只有一隻的情況，直接當作最小群
+            if N == 1:
+                center = birds[0]
+            else:
+                visited = np.zeros(N, dtype=bool)
+
+                best_group = None      # 儲存「目前選中的群」的 index list
+                best_size = None       # 目前群大小
+                best_dist_sq = None    # 目前群中心到掠食者的距離平方（用來平手時比較）
+
+                self_pos = np.array([self.position.x, self.position.y], dtype=float)
+
+                for i in range(N):
+                    if visited[i]:
+                        continue
+
+                    # DFS 建立一個群
+                    stack = [i]
+                    visited[i] = True
+                    group = [i]
+
+                    while stack:
+                        j = stack.pop()
+
+                        # 找距離在 group_radius 內的鄰居
+                        diff = birds - birds[j]                    # shape: (N, 2)
+                        d2 = np.sum(diff * diff, axis=1)           # 每隻與第 j 隻的距離平方
+
+                        neighbors = np.where((d2 <= group_radius_sq) & (~visited))[0]
+                        if neighbors.size > 0:
+                            visited[neighbors] = True
+                            stack.extend(neighbors.tolist())
+                            group.extend(neighbors.tolist())
+
+                    # 這一群的資訊
+                    group_size = len(group)
+                    group_center = birds[group].mean(axis=0)
+                    dc = group_center - self_pos
+                    dist_sq = dc[0] * dc[0] + dc[1] * dc[1]
+
+                    # 選「最小群」，同大小時選「距離掠食者最近」的群
+                    if best_group is None:
+                        best_group = group
+                        best_size = group_size
+                        best_dist_sq = dist_sq
+                    else:
+                        if (group_size < best_size) or \
+                        (group_size == best_size and dist_sq < best_dist_sq):
+                            best_group = group
+                            best_size = group_size
+                            best_dist_sq = dist_sq
+
+                # 最終選定群的中心
+                center = birds[best_group].mean(axis=0)
+
+            desired = pygame.math.Vector2(center[0] - self.position.x,
+                                        center[1] - self.position.y)
+
+            if desired.length_squared() == 0:
+                return track_force
+
+            # 調整到最大速度
+            desired.scale_to_length(max_speed)
+
+            # steering = desired - current_velocity
+            track_force = desired - self.velocity
+
+            # 限制最大轉向力
+            if track_force.length_squared() > max_track_sq:
+                track_force.scale_to_length(max_track)
+
+            return track_force
+
+        #追蹤 bird
+        def apply_track(self, all_boids, mode=4):
+            if all_boids:
+                match mode:
+                    case 1:
+                        return self.track1(all_boids)
+                    case 2:
+                        return self.track2(all_boids)
+                    case 3:
+                        return self.track3(all_boids)
+                    case 4:
+                        return self.track4(all_boids)
         
         #避開其他 predator
         def apply_separation(self, predators):
