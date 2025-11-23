@@ -14,7 +14,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
     #初始化
     pygame.init()
     Screen = pygame.display.set_mode((SCREEN_WIDTH,SCREEN_HEIGHT))
-    pygame.display.set_caption('boids V3.0.0')
+    pygame.display.set_caption('boids V5.0.0')
     Timer = pygame.time.Clock()
 
     #全域變數
@@ -25,6 +25,17 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
     DT=0 #每楨之間時間間隔，確保不同楨率下動畫表現一致
     Running = True
+
+    #函數
+    def calculate_mutation(val,rate,isInt=False):
+        rate = random.uniform(1-rate, 1+rate)
+        if isInt: 
+            tmp = val*rate
+            Int_part = np.floor(tmp)
+            Float_part = tmp - Int_part
+            if random.rand()<Float_part: Int_part+=1
+            return int(Int_part)
+        else: return val*rate
 
     #物件定義
     class Animal:
@@ -65,7 +76,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             self.apply_bounce(obstacles)
 
             #更改速度
-            self.speed *= (1 - Setting["Overall"]["Damping"])
+            self.speed *= (1 - Setting["Overall"]["Damping"]/10000)
             self.speed = min(max(self.speed, MIN_SPPED), MAX_SPEED)
             self.velocity = self.direction * self.speed * DT
 
@@ -84,7 +95,20 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 self.position.y = SCREEN_HEIGHT
 
     class Bird(Animal):
-        def __init__(self, pos=None):   
+        def __init__(self, pos=None, load_Setting=None):
+            if load_Setting:
+                self.Attribute = load_Setting
+            else:
+                self.Attribute = Setting["Bird"].copy()
+                for key,val in self.Attribute.items():
+                    self.Attribute[key] = calculate_mutation(val, Setting["Evolution"]["Init_Mutation_Rate"])
+            
+            for key,val in self.Attribute.items():
+                if key in Setting["Lower_Bound_Bird"].keys():
+                    self.Attribute[key] = max(val,Setting["Lower_Bound_Bird"][key])
+                if key in Setting["Upper_Bound_Bird"]:
+                    self.Attribute[key] = min(val,Setting["Upper_Bound_Bird"][key])
+
             if pos is None:
                 edges = [
                     {'x': 0, 'y': random.randint(0, SCREEN_HEIGHT)},           
@@ -93,7 +117,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                     {'x': random.randint(0, SCREEN_WIDTH), 'y': SCREEN_HEIGHT}
                 ]
                 pos = random.choice(edges)
-            self.Attribute = Setting["Bird"].copy()
+            
             super(Bird,self).__init__(pos, self.Attribute["Size"], (self.Attribute["MIN_Speed"] + self.Attribute["MAX_Speed"]) / 2) 
         
         def apply_force(self, boids, Target):
@@ -111,7 +135,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 #確保不是自己且對象是存活的
                 if other is not self and other.situation == "alive":
                     #計算兩個 boid 之間的距離
-                    distance = self.position.distance_to(other.position)
+                    distance = self.position.distance_to(other.position)-other.Attribute["Size"]/2
 
                     #檢查距離是否在排斥範圍內
                     if 0 < distance < self.Attribute["Perception_Radius"]:
@@ -157,10 +181,10 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
             for predator in predators:
                 distance_vector = self.position - predator.position #從掠食者指向 boid 的向量
-                distance = distance_vector.length()
+                distance = distance_vector.length() - predator.Attribute["Size"]/2
 
                 #檢查是否在掠食者的捕獲範圍內
-                if distance < predator.Attribute["Eat_Radius"]:
+                if distance < predator.Attribute["Eat_Radius"]+self.Attribute["Size"]/2:
                     self.situation = "dying"
                     self.speed = 0
                     #死亡後觸發粒子
@@ -207,15 +231,39 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 super(Bird,self).basis_update(self.Attribute["MAX_Speed"], self.Attribute["MIN_Speed"], obstacles)
 
                 #更改顏色/大小
-                OMxS = Setting["Overall_Bird"]["MAX_Speed"]
-                OMnS = Setting["Overall_Bird"]["MIN_Speed"]
-                self.color = Bird_Color_Slow+(Bird_Color_ChangeRate)*((self.speed-OMnS) / (OMxS-OMnS) if (OMxS-OMnS>0) else 1)
+                OMxS = Setting["Upper_Bound_Bird"]["MAX_Speed"]
+                OMnS = Setting["Lower_Bound_Bird"]["MIN_Speed"]
+                self.color = Bird_Color_Slow+(Bird_Color_ChangeRate)*((self.speed-OMnS) / (OMxS-OMnS) if (OMxS-OMnS>0) else 0)
+                self.size = self.Attribute["Size"]
+
+                #適應度評分
+                self.Attribute["Fitness"]+=DT
+            
             elif (self.situation == "dying"):
                 #死亡後:本體顏色漸暗
                 self.color = (self.color[0] * 0.97, self.color[1] * 0.97, self.color[2] * 0.97)
                 if (self.color[0] <= 15):
                     self.situation = "dead"
 
+        @staticmethod
+        def reproduction(birds):
+            W = np.array([obj.Attribute["Fitness"] for obj in birds])**Setting["Evolution"]["Reproduce_Weight"]
+            samples = np.random.choice(birds, size=2, replace=False, p=W / W.sum())
+            Attribute = Setting["Bird"].copy()
+            for key,val in Attribute.items():
+                Attribute[key] = calculate_mutation(
+                    np.mean([obj.Attribute[key] for obj in samples]), Setting["Evolution"]["Mutation_Rate"])
+            Attribute["Fitness"] = 0
+            return Bird(load_Setting=Attribute) # ,pos={'x':samples[0].position.x,'y':samples[0].position.y}
+
+        @staticmethod
+        def record_Attribute(all_boids):
+            L = len(all_boids)
+            for key in shared_state_modify["Bird"].keys():
+                shared_state_modify["Bird"][key] = 0
+            for boid in all_boids:
+                for key in shared_state_modify["Bird"].keys():
+                    shared_state_modify["Bird"][key] += boid.Attribute[key]/L
 
     class Predator(Animal):
         def __init__(self, pos = None):
@@ -229,30 +277,259 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 pos = random.choice(edges)
             self.Attribute = Setting["Predator"]
             super(Predator, self).__init__(pos, self.Attribute["Size"], self.Attribute["MAX_Speed"], color=(255, 30, 45))
-        
-        #追蹤 bird
-        def apply_track(self, all_boids):
+        @classmethod
+        def track1(self,all_boids):
+            '''
+            追視野範圍內的 bird 質量中心
+            '''
             track_force = pygame.math.Vector2(0, 0) #追蹤力
             TRACK_RADIUS_SQ = self.Attribute["Perception_Radius"] ** 2
-            if all_boids:
-                neighbor_count = 0 # 紀錄偵測到的近鄰數量
+            neighbor_count = 0 # 紀錄偵測到的近鄰數量
 
-                for bird in all_boids:
-                    if bird.situation != "alive":
+            for bird in all_boids:
+                if bird.situation != "alive":
+                    continue
+                forward_bird = bird.position - self.position
+                if TRACK_RADIUS_SQ > forward_bird.length_squared() > 0:
+                    track_force += forward_bird
+                    neighbor_count += 1
+
+            if neighbor_count > 0:
+                track_force /= neighbor_count
+                if track_force.length_squared() > 0:
+                    track_force = track_force.normalize() * self.Attribute["MAX_Speed"] - self.velocity
+                    if track_force.length_squared() > self.Attribute["Track_Weight"] ** 2:
+                        track_force.scale_to_length(self.Attribute["Track_Weight"])
+            return track_force
+        
+        def track2(self,all_boids):
+            '''
+            追視野範圍內最近的
+            '''
+            track_force = pygame.math.Vector2(0, 0) #追蹤力
+            TRACK_RADIUS_SQ = self.Attribute["Perception_Radius"] ** 2
+            min_D = TRACK_RADIUS_SQ
+            nearest = None
+            for bird in all_boids:
+                if bird.situation != "alive":
+                    continue
+                forward_bird = bird.position - self.position
+                if min_D > forward_bird.length_squared():
+                    min_D = forward_bird.length_squared()
+                    nearest = forward_bird
+            if nearest:
+                track_force = nearest
+                if track_force.length_squared() > 0:
+                    track_force = track_force.normalize() * self.Attribute["MAX_Speed"] - self.velocity
+                    if track_force.length_squared() > self.Attribute["Track_Weight"] ** 2:
+                        track_force.scale_to_length(self.Attribute["Track_Weight"])
+            return track_force
+        
+        def track3(self, all_boids):
+            '''
+            追視野範圍內最大群的
+            '''
+
+            # 初始追蹤力
+            track_force = pygame.math.Vector2(0, 0)
+
+            perception_radius = self.Attribute["Perception_Radius"]
+            track_radius_sq = perception_radius * perception_radius
+            group_radius = perception_radius * 0.5
+            group_radius_sq = group_radius * group_radius
+
+            max_speed = self.Attribute["MAX_Speed"]
+            max_track = self.Attribute["Track_Weight"]
+            max_track_sq = max_track * max_track
+
+            # 先收集視野範圍內的鳥的位置
+            birds_list = []
+            for bird in all_boids:
+                # 如果 all_boids 裡可能包含自己，順便排除掉
+                if bird is self or bird.situation != "alive":
+                    continue
+
+                offset = bird.position - self.position
+                if offset.length_squared() <= track_radius_sq:
+                    birds_list.append([bird.position.x, bird.position.y])
+
+            if not birds_list:
+                return track_force
+
+            birds = np.asarray(birds_list, dtype=float)
+            N = birds.shape[0]
+
+            # 只有一隻鳥就不用分群，直接追那隻即可
+            if N == 1:
+                center = birds[0]
+            else:
+                visited = np.zeros(N, dtype=bool)
+                largest_group = None
+
+                for i in range(N):
+                    if visited[i]:
                         continue
-                    forward_bird = bird.position - self.position
-                    if TRACK_RADIUS_SQ > forward_bird.length_squared():
-                        track_force += forward_bird
-                        neighbor_count += 1
 
-                if neighbor_count > 0:
-                    track_force /= neighbor_count
-                    if track_force.length_squared() > 0:
-                        track_force = track_force.normalize() * self.Attribute["MAX_Speed"] - self.velocity
-                        if track_force.length_squared() > self.Attribute["Track_Weight"] ** 2:
-                            track_force.scale_to_length(self.Attribute["Track_Weight"])
+                    stack = [i]
+                    visited[i] = True
+                    group = [i]
+
+                    while stack:
+                        j = stack.pop()
+
+                        # 找距離在 group_radius 內的鄰居
+                        diff = birds - birds[j]            # shape: (N, 2)
+                        d2 = np.einsum('ij,ij->i', diff, diff)  # 每行的平方距離
+
+                        neighbors = np.where((d2 <= group_radius_sq) & (~visited))[0]
+                        if neighbors.size > 0:
+                            visited[neighbors] = True
+                            stack.extend(neighbors.tolist())
+                            group.extend(neighbors.tolist())
+
+                    if (largest_group is None) or (len(group) > len(largest_group)):
+                        largest_group = group
+
+                center = birds[largest_group].mean(axis=0)
+
+            # 由 self.position 指向最大群中心的期望速度（seek）
+            desired = pygame.math.Vector2(center[0] - self.position.x,
+                                        center[1] - self.position.y)
+
+            if desired.length_squared() == 0:
+                return track_force
+
+            # 調整為最大速度
+            desired.scale_to_length(max_speed)
+
+            # steering = desired - current_velocity
+            track_force = desired - self.velocity
+
+            # 限制最大轉向力
+            if track_force.length_squared() > max_track_sq:
+                track_force.scale_to_length(max_track)
 
             return track_force
+
+        def track4(self, all_boids):
+            '''
+            追視野範圍內烙單的(最小群)
+            '''
+            # 初始追蹤力
+            track_force = pygame.math.Vector2(0, 0)
+
+            perception_radius = self.Attribute["Perception_Radius"]
+            track_radius_sq = perception_radius * perception_radius
+            group_radius = perception_radius * 0.5
+            group_radius_sq = group_radius * group_radius
+
+            max_speed = self.Attribute["MAX_Speed"]
+            max_track = self.Attribute["Track_Weight"]
+            max_track_sq = max_track * max_track
+
+            # 先收集「視野範圍內」的 bird 位置
+            birds_list = []
+            for bird in all_boids:
+                # 排除自己與死亡的
+                if bird is self or bird.situation != "alive":
+                    continue
+
+                offset = bird.position - self.position
+                if offset.length_squared() <= track_radius_sq:
+                    birds_list.append([bird.position.x, bird.position.y])
+
+            # 視野內沒有鳥
+            if not birds_list:
+                return track_force
+
+            birds = np.asarray(birds_list, dtype=float)
+            N = birds.shape[0]
+
+            # 只有一隻的情況，直接當作最小群
+            if N == 1:
+                center = birds[0]
+            else:
+                visited = np.zeros(N, dtype=bool)
+
+                best_group = None      # 儲存「目前選中的群」的 index list
+                best_size = None       # 目前群大小
+                best_dist_sq = None    # 目前群中心到掠食者的距離平方（用來平手時比較）
+
+                self_pos = np.array([self.position.x, self.position.y], dtype=float)
+
+                for i in range(N):
+                    if visited[i]:
+                        continue
+
+                    # DFS 建立一個群
+                    stack = [i]
+                    visited[i] = True
+                    group = [i]
+
+                    while stack:
+                        j = stack.pop()
+
+                        # 找距離在 group_radius 內的鄰居
+                        diff = birds - birds[j]                    # shape: (N, 2)
+                        d2 = np.sum(diff * diff, axis=1)           # 每隻與第 j 隻的距離平方
+
+                        neighbors = np.where((d2 <= group_radius_sq) & (~visited))[0]
+                        if neighbors.size > 0:
+                            visited[neighbors] = True
+                            stack.extend(neighbors.tolist())
+                            group.extend(neighbors.tolist())
+
+                    # 這一群的資訊
+                    group_size = len(group)
+                    group_center = birds[group].mean(axis=0)
+                    dc = group_center - self_pos
+                    dist_sq = dc[0] * dc[0] + dc[1] * dc[1]
+
+                    # 選「最小群」，同大小時選「距離掠食者最近」的群
+                    if best_group is None:
+                        best_group = group
+                        best_size = group_size
+                        best_dist_sq = dist_sq
+                    else:
+                        if (group_size < best_size) or \
+                        (group_size == best_size and dist_sq < best_dist_sq):
+                            best_group = group
+                            best_size = group_size
+                            best_dist_sq = dist_sq
+
+                # 最終選定群的中心
+                center = birds[best_group].mean(axis=0)
+
+            desired = pygame.math.Vector2(center[0] - self.position.x,
+                                        center[1] - self.position.y)
+
+            if desired.length_squared() == 0:
+                return track_force
+
+            # 調整到最大速度
+            desired.scale_to_length(max_speed)
+
+            # steering = desired - current_velocity
+            track_force = desired - self.velocity
+
+            # 限制最大轉向力
+            if track_force.length_squared() > max_track_sq:
+                track_force.scale_to_length(max_track)
+
+            return track_force
+
+        #追蹤 bird
+        def apply_track(self, all_boids, mode=4):
+            if all_boids:
+                match mode:
+                    case 1:
+                        return self.track1(all_boids)
+                    case 2:
+                        return self.track2(all_boids)
+                    case 3:
+                        return self.track3(all_boids)
+                    case 4:
+                        return self.track4(all_boids)
         
         #避開其他 predator
         def apply_separation(self, predators):
@@ -261,7 +538,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
             for predator in predators:
                 distance_vector = self.position - predator.position
-                distance = distance_vector.length()
+                distance = distance_vector.length() - predator.Attribute["Size"]/2
 
                 #檢查是否在觀察範圍內
                 if distance < self.Attribute["Perception_Radius"] and distance > 0:
@@ -282,7 +559,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             force = self.apply_track(all_boids)+self.apply_separation(predators) #計算作用力
             self.direction = (self.direction+force).normalize() #調整方向
             self.speed += force.length() #調整速率
-
+           
             #調整大小
             self.size = self.Attribute["Size"]
 
@@ -426,12 +703,14 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             if shared_state_read['Overall']['Pause']:
                 Timer.tick(Setting["Overall"]["FPS"]) #處理時間
                 continue
+        
+        # 全域變數更新
 
         #Bird 數量更新
         desired_Bird_count = int(Setting["Overall_Bird"]["Number"])
         if desired_Bird_count > len(birds):
             for _ in range(desired_Bird_count - len(birds)):
-               birds.append(Bird())
+               birds.append(Bird.reproduction(birds))
         elif desired_Bird_count < len(birds):
                birds = birds[:desired_Bird_count]
 
@@ -457,6 +736,9 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
         elif desired_obs_count < len(obstacles):
             obstacles = obstacles[:desired_obs_count]
 
+        #統計資料
+        if stop_event:
+            Bird.record_Attribute(birds)
 
         #繪圖
         Screen.fill(BACKGROUND_COLOR)
@@ -470,19 +752,23 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
         for i in range(Setting["Overall_Bird"]["Number"]):
             #死掉的 bird 在邊界重生
             if (birds[i].situation == "dead"):
-                birds[i] = Bird()
+                birds[i] = Bird.reproduction(birds)
             else:
                 birds[i].update(birds,obstacles,predators,
-                    Target=np.random.choice(np.arange(0, Setting["Overall_Bird"]["Number"]), size = (int(Setting["Overall_Bird"]["Number"] * Setting["Overall_Bird"]["Movement_Accuracy"]), ), replace = False)
+                    Target=np.random.choice(np.arange(0, Setting["Overall_Bird"]["Number"]), size = (int(Setting["Overall_Bird"]["Number"] * Setting["Overall_Bird"]["Movement_Accuracy"]/100), ), replace = False)
                 ) 
                 birds[i].draw(Screen)
+
+        # 更新 particles
         particles = [particle for particle in particles if (particle.lifetime > 0)] #移除週期結束的粒子
         for particle in particles:
             particle.update()
             particle.draw(Screen)
+        # 更新 predator
         for predator in predators:
             predator.update(birds, obstacles, predators)
             predator.draw(Screen)
+        # 更新 obstacle
         for obstacle in obstacles:
             obstacle.draw(Screen)
 

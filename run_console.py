@@ -43,19 +43,19 @@ def set_tkinter(stop_event=threading.Event()):
 
     vars_dict_read = {
         "Overall":{
-            "DT": ttk.IntVar(value = 0), #畫面更新率
+            "DT": ttk.StringVar(value = ""), #畫面更新率
         },
         "Bird": {
-            "Size": ttk.IntVar(value = 8), # bird 大小
-            "MIN_Speed": ttk.IntVar(value = 20), # bird 最小速度
-            "MAX_Speed_Multiplier": ttk.DoubleVar(value = 10.0), # bird 最大速度
-            "Perception_Radius": ttk.IntVar(value = 30), # bird 觀察範圍
-            "Separation_Weight": ttk.DoubleVar(value = 1), #bird 分離力最大值
-            "Alignment_Weight": ttk.DoubleVar(value = 1), # bird 對齊力最大值
-            "Cohesion_Weight": ttk.DoubleVar(value = 1), # bird 聚集力最大值
-            "Flee_Weight": ttk.DoubleVar(value = 4), # bird 逃跑力最大值
-            "Alert_Radius": ttk.IntVar(value = 50), # bird 警戒範圍
-            "Movement_Accuracy": ttk.IntVar(value = 50), # bird 不合群率
+            "Size": ttk.StringVar(value = ""), # bird 大小
+            "MIN_Speed": ttk.StringVar(value = ""), # bird 最小速度
+            "MAX_Speed": ttk.StringVar(value = ""), # bird 最大速度
+            "Perception_Radius": ttk.StringVar(value = ""), # bird 觀察範圍
+            "Separation_Weight": ttk.StringVar(value = ""), #bird 分離力最大值
+            "Alignment_Weight": ttk.StringVar(value = ""), # bird 對齊力最大值
+            "Cohesion_Weight": ttk.StringVar(value = ""), # bird 聚集力最大值
+            "Flee_Weight": ttk.StringVar(value = ""), # bird 逃跑力最大值
+            "Alert_Radius": ttk.StringVar(value = ""), # bird 警戒範圍
+            "Fitness": ttk.StringVar(value = ""), # bird 對環境的適應度
         }
     }
 
@@ -64,6 +64,7 @@ def set_tkinter(stop_event=threading.Event()):
             for key, var in vars_in_section.items():
                 if section in Pygame_Setting and key in Pygame_Setting[section]:
                     var.set(Pygame_Setting[section][key])
+    vars_dict_modify["Predator"]["MAX_Speed_Multiplier"].set(Pygame_Setting["Predator"]["MAX_Speed"]/Pygame_Setting["Predator"]["MIN_Speed"])
 
     # handle shared state
     shared_state_modify = {
@@ -71,7 +72,7 @@ def set_tkinter(stop_event=threading.Event()):
         for title,params in vars_dict_modify.items()
     }
     shared_state_read = {
-        title: {key: value.get() for key,value in params.items()}
+        title: {key: 0 for key,value in params.items()}
         for title,params in vars_dict_read.items()
     }
     
@@ -192,7 +193,25 @@ def set_tkinter(stop_event=threading.Event()):
         slider.pack(side = "left", padx = 8, expand = True)
         ttk.Button(row_frame, text = "+", bootstyle = "secondary", width = 1, command = lambda: adjust(step)).pack(side = "left", padx = 2)
     
+    def add_readonly_value(parent, label_text, section, key):
+        row_frame = ttk.Frame(parent)
+        row_frame.pack(fill="x", pady=8, padx=10)
 
+        # 左邊文字標籤
+        ttk.Label(row_frame, text=label_text, width=20).pack(side="left", anchor="w")
+
+        # 顯示數值用的 Tk 變數
+        val_var = vars_dict_read[section][key]
+
+        # 顯示數值的 Label
+        ttk.Label(row_frame, textvariable=val_var, width=10, anchor="e").pack(side="left", padx=5)
+
+    def add_text_label(parent, label_text, font=None,color="#FFFFFF"):
+        row_frame = ttk.Frame(parent)
+        row_frame.pack(fill="x", pady=8, padx=10)
+        ttk.Label(row_frame, text=label_text, width=20, font=font, foreground=color).pack(side="left", anchor="w")
+
+    
     # ======== Console ========
     console_scrollable_frame, overall_canvas = create_scrollable_frame(Console_Window["Console"])
 
@@ -200,20 +219,36 @@ def set_tkinter(stop_event=threading.Event()):
     # ======== 模擬設定 ========
     simSet_scrollable_frame, bird_canvas = create_scrollable_frame(Console_Window["Sim Set"])  
 
+    add_text_label(simSet_scrollable_frame,"Overall",font=("Helvetica",14,"bold"),color="#EFA00B")
     add_slider(simSet_scrollable_frame, "Bounce Damping", vars_dict_modify["Overall"]["Bounce_Damping"], 0, 10, step = 0.1, section = "Overall")
-    add_slider(simSet_scrollable_frame, "Damping(0.001)", vars_dict_modify["Overall"]["Damping"], 0, 100, step = 1, section = "Overall")
-    add_slider(simSet_scrollable_frame, "Predator Number", vars_dict_modify["Overall_Predator"]["Number"], 0, 50, step = 1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Predator Size", vars_dict_modify["Predator"]["Size"], 1, 100, step = 1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Predator Min Speed", vars_dict_modify["Predator"]["MIN_Speed"], 1, 400, step = 1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Predator Max Speed Multiplier", vars_dict_modify["Predator"]["MAX_Speed_Multiplier"], 1, 20,step = 0.1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Predator Perception Radius", vars_dict_modify["Predator"]["Perception_Radius"], 0, 200, step = 1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Predator Separation Weight", vars_dict_modify["Predator"]["Separation_Weight"], 0, 20, step = 0.1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Predator Track Weight", vars_dict_modify["Predator"]["Track_Weight"], 0, 20, step = 0.1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Predator Eat Radius", vars_dict_modify["Predator"]["Eat_Radius"], 0, 100, step = 1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Damping(0.0001)", vars_dict_modify["Overall"]["Damping"], 0, 1000, step = 1, section = "Overall")
+    
+    add_text_label(simSet_scrollable_frame,"Predator",font=("Helvetica",14,"bold"),color="#EFA00B")
+    add_slider(simSet_scrollable_frame, "Number", vars_dict_modify["Overall_Predator"]["Number"], 0, 50, step = 1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Size", vars_dict_modify["Predator"]["Size"], 1, 100, step = 1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Min Speed", vars_dict_modify["Predator"]["MIN_Speed"], 1, 400, step = 1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Max Speed Multiplier", vars_dict_modify["Predator"]["MAX_Speed_Multiplier"], 1, 20,step = 0.1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Perception Radius", vars_dict_modify["Predator"]["Perception_Radius"], 0, 200, step = 1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Separation Weight", vars_dict_modify["Predator"]["Separation_Weight"], 0, 20, step = 0.1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Track Weight", vars_dict_modify["Predator"]["Track_Weight"], 0, 20, step = 0.1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Eat Radius", vars_dict_modify["Predator"]["Eat_Radius"], 0, 100, step = 1, section = "Predator")
+    
+    add_text_label(simSet_scrollable_frame,"Obstacle",font=("Helvetica",14,"bold"),color="#EFA00B")
     add_slider(simSet_scrollable_frame, "Obstacle Number", vars_dict_modify["Obstacle"]["Number"], 0, 20, step = 1, section = "Obstacle")
 
     # ======== 監看視窗 ========
     overlook_scrollable_frame, predator_canvas = create_scrollable_frame(Console_Window["Overlook"])
+    add_text_label(overlook_scrollable_frame,"Bird",font=("Helvetica",14,"bold"),color="#EFA00B")
+    add_readonly_value(overlook_scrollable_frame, "Size", "Bird", "Size")
+    add_readonly_value(overlook_scrollable_frame, "MIN Speed", "Bird", "MIN_Speed")
+    add_readonly_value(overlook_scrollable_frame, "MAX Speed", "Bird", "MAX_Speed")
+    add_readonly_value(overlook_scrollable_frame, "Perception Radius", "Bird", "Perception_Radius")
+    add_readonly_value(overlook_scrollable_frame, "Separation Weight", "Bird", "Separation_Weight")
+    add_readonly_value(overlook_scrollable_frame, "Alignment Weight", "Bird", "Alignment_Weight")
+    add_readonly_value(overlook_scrollable_frame, "Cohesion Weight", "Bird", "Cohesion_Weight")
+    add_readonly_value(overlook_scrollable_frame, "Flee Weight", "Bird", "Flee_Weight")
+    add_readonly_value(overlook_scrollable_frame, "Alert Radius", "Bird", "Alert_Radius")
+    add_readonly_value(overlook_scrollable_frame, "Fitness", "Bird", "Fitness")
 
     
 
@@ -222,22 +257,21 @@ def set_tkinter(stop_event=threading.Event()):
         root.destroy()
     
     def update_shared_state():
-        Specialize = ("Damping","MAX_Speed_Multiplier","Movement_Accuracy")
+        Specialize = ("MAX_Speed_Multiplier")
         for section, vars_in_section in vars_dict_modify.items():
             for key, var in vars_in_section.items():
                 val = var.get()
-                if section not in Pygame_Setting or key not in Pygame_Setting[section]:
-                    shared_state_modify[section][key] = val
-                elif key in Specialize:
-                    if key=="Damping":
-                        Pygame_Setting["Overall"]["Damping"] = val/1000
-                    elif key=="MAX_Speed_Multiplier":
+                if key in Specialize:
+                    if section=="Predator" and key=="MAX_Speed_Multiplier":
                         Pygame_Setting["Predator"]["MAX_Speed"] = int(Pygame_Setting["Predator"]["MIN_Speed"]*val)
-                    elif key=="Movement_Accuracy":
-                        Pygame_Setting["Overall_Bird"]["Movement_Accuracy"] = val/100
+                elif section not in Pygame_Setting or key not in Pygame_Setting[section]:
+                    shared_state_modify[section][key] = val
                 else :
                     Pygame_Setting[section][key] = val
-                
+
+        for section, vars_in_section in vars_dict_read.items():
+            for key, var in vars_in_section.items():
+                var.set(f"{float(shared_state_read[section][key]):.2f}")
         root.after(100, update_shared_state)      
     
     def check_pygame_stop():
