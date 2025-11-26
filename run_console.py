@@ -2,9 +2,18 @@ import ttkbootstrap as ttk
 import run_pygame
 import threading
 import read_data
+import sys
+import json
 
 #load data
-Pygame_Setting = read_data.read_Setting()
+# 如果跑檔案有輸入要讀取的檔案，如在CMD中輸入: python run_console.py test_input(.json) 
+if (len(sys.argv) > 1):
+    file_name = sys.argv[1]
+    # 移除尾部.json
+    file_name = file_name.replace(".json", "")
+    Pygame_Setting = read_data.read_Setting(file_name)
+else:
+    Pygame_Setting = read_data.read_Setting()
 
 # tkinter
 def set_tkinter(stop_event=threading.Event()):
@@ -249,7 +258,14 @@ def set_tkinter(stop_event=threading.Event()):
     add_readonly_value(overlook_scrollable_frame, "Flee Weight", "Bird", "Flee_Weight")
     add_readonly_value(overlook_scrollable_frame, "Alert Radius", "Bird", "Alert_Radius")
     add_readonly_value(overlook_scrollable_frame, "Fitness", "Bird", "Fitness")
-
+    # 輸入條設定 json 檔名
+    file_name = ttk.StringVar()
+    file_name.set("file_name")
+    save_entry = ttk.Entry(overlook_scrollable_frame, textvariable=file_name) 
+    save_entry.pack()
+    # save 按鈕
+    save_button = ttk.Button(overlook_scrollable_frame, text = "Save", command = (lambda: save_Setting()))
+    save_button.pack()
     
 
     def on_closing():
@@ -274,6 +290,23 @@ def set_tkinter(stop_event=threading.Event()):
                 var.set(f"{float(shared_state_read[section][key]):.2f}")
         root.after(100, update_shared_state)      
     
+    def save_Setting():
+        # 儲存當前的設定，包括 UI 滑桿調整後的值和Genetic Algorithm 跑到一半的 birds
+        # UI 滑桿調整的值會更新到 Pygame_Setting 裡，所以這邊只要把 GA 的參數更新後存成 json
+        Pygame_Setting["Bird"]["Size"] = shared_state_read["Bird"]["Size"]
+        Pygame_Setting["Bird"]["MIN_Speed"] = shared_state_read["Bird"]["MIN_Speed"]
+        Pygame_Setting["Bird"]["MAX_Speed"] = shared_state_read["Bird"]["MAX_Speed"]
+        Pygame_Setting["Bird"]["Perception_Radius"] = shared_state_read["Bird"]["Perception_Radius"]
+        Pygame_Setting["Bird"]["Separation_Weight"] = shared_state_read["Bird"]["Separation_Weight"]
+        Pygame_Setting["Bird"]["Alignment_Weight"] = shared_state_read["Bird"]["Alignment_Weight"]
+        Pygame_Setting["Bird"]["Cohesion_Weight"] = shared_state_read["Bird"]["Cohesion_Weight"]
+        Pygame_Setting["Bird"]["Flee_Weight"] = shared_state_read["Bird"]["Flee_Weight"]
+        Pygame_Setting["Bird"]["Alert_Radius"] = shared_state_read["Bird"]["Alert_Radius"]
+        name = str(file_name.get())
+        save_entry.delete(0, "end")
+        with open("data/%s.json" %name, "w") as f:
+            json.dump(Pygame_Setting, f)
+
     def check_pygame_stop():
         if stop_event.is_set():
             root.destroy()   # pygame 已經退出，關掉 tkinter
