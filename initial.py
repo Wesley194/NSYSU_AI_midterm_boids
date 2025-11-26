@@ -35,7 +35,7 @@ def setGlobal():
             "Size": 8, # bird 大小
             "MIN_Speed": 20, # bird 最小速度
             "MAX_Speed": 100, # bird 最大速度
-            "Perception_Radius": 30, # bird 觀察範圍
+            "Perception_Radius": 50, # bird 觀察範圍
             "Separation_Weight": 1, #bird 分離力最大值
             "Alignment_Weight": 1, # bird 對齊力最大值
             "Cohesion_Weight": 1, # bird 聚集力最大值
@@ -72,7 +72,7 @@ def setGlobal():
 
 def create_default():
     Setting = setGlobal()
-    with open("data/setting.json", "w") as f:
+    with open("data/default_setting.json", "w") as f:
         json.dump(Setting, f)
 
 if __name__ == "__main__":

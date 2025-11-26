@@ -8,6 +8,7 @@ SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 SCREEN_CNETER=(SCREEN_WIDTH/2,SCREEN_HEIGHT/2)
 BACKGROUND_COLOR = (25, 25, 25)
+SPEED_VARIATION_BOUND = 0.5
 
 def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_read=None):
 
@@ -173,6 +174,11 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                     if cohesion_force.length_squared() > self.Attribute["Cohesion_Weight"]**2:
                         cohesion_force.scale_to_length(self.Attribute["Cohesion_Weight"])
 
+            if neighbor_count > 5:
+                self.Attribute["Fitness"]+=DT * 0.2
+            elif neighbor_count < 2:
+                self.Attribute["Fitness"]-=DT
+
             return separation_force + alignment_force + cohesion_force 
 
         def flee_predator(self, predators):
@@ -238,6 +244,10 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
                 #適應度評分
                 self.Attribute["Fitness"]+=DT
+                if (force.length() < SPEED_VARIATION_BOUND):
+                    self.Attribute["Fitness"]+=DT * 0.4
+                else:
+                    self.Attribute["Fitness"]-=DT * 0.2
             
             elif (self.situation == "dying"):
                 #死亡後:本體顏色漸暗
@@ -277,7 +287,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 pos = random.choice(edges)
             self.Attribute = Setting["Predator"]
             super(Predator, self).__init__(pos, self.Attribute["Size"], self.Attribute["MAX_Speed"], color=(255, 30, 45))
-        @classmethod
+        
         def track1(self,all_boids):
             '''
             追視野範圍內的 bird 質量中心
