@@ -5,24 +5,20 @@ import read_data
 import sys
 import json
 
-#load data
-# 如果跑檔案有輸入要讀取的檔案，如在CMD中輸入: python run_console.py test_input(.json) 
-if (len(sys.argv) > 1):
-    file_name = sys.argv[1]
-    # 移除尾部.json
-    file_name = file_name.replace(".json", "")
-    Pygame_Setting = read_data.read_Setting(file_name)
-else:
-    Pygame_Setting = read_data.read_Setting()
+pygame_threading = None
 
 # tkinter
-def set_tkinter(stop_event=threading.Event()):
+def set_tkinter(file_Setting,file_OLD):
     #設定
     root = ttk.Window(themename = "superhero")
     root.title('Main Console')
     root.geometry('580x640')
+    stop_event=threading.Event()
 
     #data
+    file_Setting = ttk.StringVar(value=file_Setting)
+    file_OLD = ttk.StringVar(value=file_OLD)
+
     vars_dict_modify = {
         "Overall":{
             "Bounce_Damping": ttk.DoubleVar(value = 0.8), # bird 碰撞時能量遞減
@@ -202,37 +198,47 @@ def set_tkinter(stop_event=threading.Event()):
         slider.pack(side = "left", padx = 8, expand = True)
         ttk.Button(row_frame, text = "+", bootstyle = "secondary", width = 1, command = lambda: adjust(step)).pack(side = "left", padx = 2)
     
-    def add_readonly_value(parent, label_text, section, key):
+    def add_readonly_value(parent, label_text, section=None, key=None, val_var=None,w=(20,10,5)):
         row_frame = ttk.Frame(parent)
         row_frame.pack(fill="x", pady=8, padx=10)
-
         # 左邊文字標籤
-        ttk.Label(row_frame, text=label_text, width=20).pack(side="left", anchor="w")
+        ttk.Label(row_frame, text=label_text, width=w[0]).pack(side="left", anchor="w")
 
         # 顯示數值用的 Tk 變數
-        val_var = vars_dict_read[section][key]
+        if val_var is None : val_var = vars_dict_read[section][key]
 
         # 顯示數值的 Label
-        ttk.Label(row_frame, textvariable=val_var, width=10, anchor="e").pack(side="left", padx=5)
+        ttk.Label(row_frame, textvariable=val_var, width=w[1], anchor="w").pack(side="left",padx=w[2])
 
-    def add_text_label(parent, label_text, font=None,color="#FFFFFF"):
+    def add_button_input_text(parent, text, function):
         row_frame = ttk.Frame(parent)
         row_frame.pack(fill="x", pady=8, padx=10)
-        ttk.Label(row_frame, text=label_text, width=20, font=font, foreground=color).pack(side="left", anchor="w")
+        ttkVar = ttk.StringVar(value = "fileName")
+        ttk.Entry(row_frame, textvariable=ttkVar).pack(side="left", anchor="w")
+        ttk.Button(row_frame, text = text, bootstyle = "solid-primary", command = (lambda : function(ttkVar=ttkVar))).pack(side="left", padx=10)
+        return ttkVar
 
     
     # ======== Console ========
     console_scrollable_frame, overall_canvas = create_scrollable_frame(Console_Window["Console"])
-
+    ttk.Label(console_scrollable_frame, text="Load Data", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
+    add_button_input_text(console_scrollable_frame, "select setting file",lambda ttkVar=None: print("Hello"))
+    add_button_input_text(console_scrollable_frame, "read last data",lambda ttkVar=None: print("Hello"))
+    ttk.Label(console_scrollable_frame, text="Simulation", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
+    add_readonly_value(console_scrollable_frame,"setting from file : ",val_var=file_Setting,w=(13,30,5))
+    add_readonly_value(console_scrollable_frame,"load data from file : ",val_var=file_OLD,w=(15,30,5))
+    ttk.Button(console_scrollable_frame, text = "open simulation", bootstyle = "solid-primary", command = (lambda : start_pygame())).pack(side="left", padx=10,pady=10)
+    ttk.Button(console_scrollable_frame, text = "close simulation", bootstyle = "solid-primary", command = (lambda : close_pygame())).pack(side="left", padx=10)
+    
 
     # ======== 模擬設定 ========
     simSet_scrollable_frame, bird_canvas = create_scrollable_frame(Console_Window["Sim Set"])  
 
-    add_text_label(simSet_scrollable_frame,"Overall",font=("Helvetica",14,"bold"),color="#EFA00B")
+    ttk.Label(simSet_scrollable_frame, text="Overall", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
     add_slider(simSet_scrollable_frame, "Bounce Damping", vars_dict_modify["Overall"]["Bounce_Damping"], 0, 10, step = 0.1, section = "Overall")
     add_slider(simSet_scrollable_frame, "Damping(0.0001)", vars_dict_modify["Overall"]["Damping"], 0, 1000, step = 1, section = "Overall")
     
-    add_text_label(simSet_scrollable_frame,"Predator",font=("Helvetica",14,"bold"),color="#EFA00B")
+    ttk.Label(simSet_scrollable_frame, text="Predator", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
     add_slider(simSet_scrollable_frame, "Number", vars_dict_modify["Overall_Predator"]["Number"], 0, 50, step = 1, section = "Predator")
     add_slider(simSet_scrollable_frame, "Size", vars_dict_modify["Predator"]["Size"], 1, 100, step = 1, section = "Predator")
     add_slider(simSet_scrollable_frame, "Min Speed", vars_dict_modify["Predator"]["MIN_Speed"], 1, 400, step = 1, section = "Predator")
@@ -242,12 +248,12 @@ def set_tkinter(stop_event=threading.Event()):
     add_slider(simSet_scrollable_frame, "Track Weight", vars_dict_modify["Predator"]["Track_Weight"], 0, 20, step = 0.1, section = "Predator")
     add_slider(simSet_scrollable_frame, "Eat Radius", vars_dict_modify["Predator"]["Eat_Radius"], 0, 100, step = 1, section = "Predator")
     
-    add_text_label(simSet_scrollable_frame,"Obstacle",font=("Helvetica",14,"bold"),color="#EFA00B")
+    ttk.Label(simSet_scrollable_frame, text="Obstacle", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
     add_slider(simSet_scrollable_frame, "Obstacle Number", vars_dict_modify["Obstacle"]["Number"], 0, 20, step = 1, section = "Obstacle")
 
     # ======== 監看視窗 ========
     overlook_scrollable_frame, predator_canvas = create_scrollable_frame(Console_Window["Overlook"])
-    add_text_label(overlook_scrollable_frame,"Bird",font=("Helvetica",14,"bold"),color="#EFA00B")
+    ttk.Label(overlook_scrollable_frame, text="Bird", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
     add_readonly_value(overlook_scrollable_frame, "Size", "Bird", "Size")
     add_readonly_value(overlook_scrollable_frame, "MIN Speed", "Bird", "MIN_Speed")
     add_readonly_value(overlook_scrollable_frame, "MAX Speed", "Bird", "MAX_Speed")
@@ -258,14 +264,6 @@ def set_tkinter(stop_event=threading.Event()):
     add_readonly_value(overlook_scrollable_frame, "Flee Weight", "Bird", "Flee_Weight")
     add_readonly_value(overlook_scrollable_frame, "Alert Radius", "Bird", "Alert_Radius")
     add_readonly_value(overlook_scrollable_frame, "Fitness", "Bird", "Fitness")
-    # 輸入條設定 json 檔名
-    file_name = ttk.StringVar()
-    file_name.set("file_name")
-    save_entry = ttk.Entry(overlook_scrollable_frame, textvariable=file_name) 
-    save_entry.pack()
-    # save 按鈕
-    save_button = ttk.Button(overlook_scrollable_frame, text = "Save", command = (lambda: save_Setting()))
-    save_button.pack()
     
 
     def on_closing():
@@ -289,29 +287,6 @@ def set_tkinter(stop_event=threading.Event()):
             for key, var in vars_in_section.items():
                 var.set(f"{float(shared_state_read[section][key]):.2f}")
         root.after(100, update_shared_state)      
-    
-    def save_Setting():
-        # 儲存當前的設定，包括 UI 滑桿調整後的值和Genetic Algorithm 跑到一半的 birds
-        # UI 滑桿調整的值會更新到 Pygame_Setting 裡，所以這邊只要把 GA 的參數更新後存成 json
-        Pygame_Setting["Bird"]["Size"] = shared_state_read["Bird"]["Size"]
-        Pygame_Setting["Bird"]["MIN_Speed"] = shared_state_read["Bird"]["MIN_Speed"]
-        Pygame_Setting["Bird"]["MAX_Speed"] = shared_state_read["Bird"]["MAX_Speed"]
-        Pygame_Setting["Bird"]["Perception_Radius"] = shared_state_read["Bird"]["Perception_Radius"]
-        Pygame_Setting["Bird"]["Separation_Weight"] = shared_state_read["Bird"]["Separation_Weight"]
-        Pygame_Setting["Bird"]["Alignment_Weight"] = shared_state_read["Bird"]["Alignment_Weight"]
-        Pygame_Setting["Bird"]["Cohesion_Weight"] = shared_state_read["Bird"]["Cohesion_Weight"]
-        Pygame_Setting["Bird"]["Flee_Weight"] = shared_state_read["Bird"]["Flee_Weight"]
-        Pygame_Setting["Bird"]["Alert_Radius"] = shared_state_read["Bird"]["Alert_Radius"]
-        name = str(file_name.get())
-        save_entry.delete(0, "end")
-        with open("data/%s.json" %name, "w") as f:
-            json.dump(Pygame_Setting, f)
-
-    def check_pygame_stop():
-        if stop_event.is_set():
-            root.destroy()   # pygame 已經退出，關掉 tkinter
-        else:
-            root.after(100, check_pygame_stop)
 
     #切換畫面
     def switch_to(frame):
@@ -327,17 +302,60 @@ def set_tkinter(stop_event=threading.Event()):
     def switch_Pause():
         vars_dict_modify["Overall"]["Pause"].set(not vars_dict_modify["Overall"]["Pause"].get())
         # shared_state_read["Overall"]["Pause"]=not shared_state_read["Overall"]["Pause"]
+
+    def load_Setting(ttkVar=None):
+        pass
+
+    def save_Setting():
+        return
+        # 儲存當前的設定，包括 UI 滑桿調整後的值
+        # UI 滑桿調整的值會更新到 Pygame_Setting 裡，所以這邊只要把 GA 的參數更新後存成 json
+        name = str(file_name.get())
+        save_entry.delete(0, "end")
+        with open("data/%s.json" %name, "w") as f:
+            json.dump(Pygame_Setting, f)
+
+    def start_pygame():
+        global pygame_threading
+        if not pygame_threading:
+            pygame_threading = threading.Thread(target=run_pygame.run_pygame, args = (Pygame_Setting, stop_event,shared_state_read, shared_state_modify))
+        if not pygame_threading.is_alive():
+            if pygame_threading.ident:
+                pygame_threading = threading.Thread(target=run_pygame.run_pygame, args = (Pygame_Setting, stop_event,shared_state_read, shared_state_modify))
+            pygame_threading.start()
+    def close_pygame():
+        if pygame_threading and pygame_threading.is_alive():
+            stop_event.set()
     
     root.protocol("WM_DELETE_WINDOW", on_closing)
     update_shared_state()
     switch_to(Console_Window["Console"])
-    check_pygame_stop()
     get_FPS()
-    pygame_thread = threading.Thread(target=run_pygame.run_pygame, args = (Pygame_Setting, stop_event, shared_state_read, shared_state_modify))
-    pygame_thread.start()
+    root.after(100, start_pygame)
     root.mainloop()
     
     stop_event.set()
 
 if __name__ == "__main__":
-    set_tkinter()
+    #load data
+    # 如果跑檔案有輸入要讀取的檔案，可以在CMD執行python時中輸入，格式如下
+    '''
+    python run_console.py 用預設設定跑
+    python run_console.py setting.json 用輸入的設定跑
+    python run_console.py setting.json environment.json 用輸入的設定和之前存檔跑
+    '''
+    # setting.json environment.json 是相對於 run_console.py 的位置，預設資料存在 data 內
+    if (len(sys.argv) == 2):
+        file_Setting = sys.argv[1]
+        Pygame_Setting,file_Setting = read_data.read_Setting(file_Setting)
+        Pygame_OLD,file_OLD = read_data.read_OLD()
+    elif (len(sys.argv) > 2):
+        file_Setting = sys.argv[1]
+        file_OLD = sys.argv[2]
+        Pygame_Setting,file_Setting = read_data.read_Setting(file_Setting)
+        Pygame_OLD,file_OLD = read_data.read_OLD(file_OLD)
+    else:
+        Pygame_Setting,file_Setting = read_data.read_Setting()
+        Pygame_OLD,file_OLD = read_data.read_OLD()
+    
+    set_tkinter(file_Setting,file_OLD)

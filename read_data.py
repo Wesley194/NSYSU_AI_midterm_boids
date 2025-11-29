@@ -1,15 +1,27 @@
 import json
 import initial
-def read_Setting(file_name = "default_setting"):
+def read_Setting(file_name = "data/default_setting.json"):
     try:
-        with open("data/%s.json" % file_name, "r") as f:
+        with open(file_name, "r") as f:
             Setting = json.load(f)
     except FileNotFoundError:
-        print("""Can not find "data/%s.json" . Create new one.""" % file_name)
+        print(f"Can not find {file_name} . Create new one.")
         initial.create_default()
-        with open("data/default_setting.json", "r") as f:
+        file_name = initial.create_default()
+        with open(file_name, "r") as f:
             Setting = json.load(f)
-    return Setting
+    return Setting,file_name
 
+def read_OLD(file_name = None):
+    if file_name is None:
+        return None,"No load any file"
+    else:
+        try:
+            with open(file_name, "r") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            print(f"Can not find {file_name}")
+            return None,"No load any file"
+        return data,file_name
 if __name__ == "__main__":
     read_Setting()
