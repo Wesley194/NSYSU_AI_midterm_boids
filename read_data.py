@@ -12,6 +12,14 @@ def read_Setting(file_name = "data/default_setting.json"):
             Setting = json.load(f)
     return Setting,file_name
 
+def read_Setting_no_default(file_name):
+    try:
+        with open(file_name, "r") as f:
+            Setting = json.load(f)
+    except FileNotFoundError:
+        return None
+    return Setting
+
 def read_OLD(file_name = None):
     if file_name is None:
         return None,"No load any file"

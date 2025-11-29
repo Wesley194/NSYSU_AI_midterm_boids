@@ -5,15 +5,19 @@ import read_data
 import sys
 import json
 
-pygame_threading = None
+
 
 # tkinter
-def set_tkinter(file_Setting,file_OLD):
+def set_tkinter():
     #設定
     root = ttk.Window(themename = "superhero")
     root.title('Main Console')
     root.geometry('580x640')
     stop_event=threading.Event()
+    global Pygame_Setting
+    global Pygame_OLD
+    global file_Setting
+    global file_OLD
 
     #data
     file_Setting = ttk.StringVar(value=file_Setting)
@@ -167,7 +171,7 @@ def set_tkinter(file_Setting,file_OLD):
         ttk.Label(row_frame, text = label_text, width = 20).pack(side = "left", anchor = "w")
 
         #數值
-        val_label = ttk.Label(row_frame, text = str(var.get()), width = 6, anchor = "e")
+        val_label = ttk.Label(row_frame, textvariable=var, width = 6, anchor = "e")
         val_label.pack(side = "left", padx = 5)
 
         def update_label(v):
@@ -215,15 +219,41 @@ def set_tkinter(file_Setting,file_OLD):
         row_frame.pack(fill="x", pady=8, padx=10)
         ttkVar = ttk.StringVar(value = "fileName")
         ttk.Entry(row_frame, textvariable=ttkVar).pack(side="left", anchor="w")
-        ttk.Button(row_frame, text = text, bootstyle = "solid-primary", command = (lambda : function(ttkVar=ttkVar))).pack(side="left", padx=10)
+        ttk.Button(row_frame, text = text, bootstyle = "solid-primary", command = (lambda v=ttkVar: function(v))).pack(side="left", padx=10)
         return ttkVar
 
-    
+    def read_Setting(ttkVar=None):
+        new_file_name = ttkVar.get()
+        tmp = read_data.read_Setting_no_default(new_file_name)
+        if tmp:
+            global Pygame_Setting
+            Pygame_Setting = tmp
+            file_Setting.set(new_file_name)
+            ttkVar.set("")
+            # initial data
+            for section, vars_in_section in vars_dict_modify.items():
+                    for key, var in vars_in_section.items():
+                        if section in Pygame_Setting and key in Pygame_Setting[section]:
+                            var.set(Pygame_Setting[section][key])
+            vars_dict_modify["Predator"]["MAX_Speed_Multiplier"].set(Pygame_Setting["Predator"]["MAX_Speed"]/Pygame_Setting["Predator"]["MIN_Speed"])
+        else:
+            ttkVar.set("error file not found")
+    def read_OLD(ttkVar=None):
+        new_file_name = ttkVar.get()
+        t1,t2 = read_data.read_OLD(new_file_name)
+        if t1:
+            global Pygame_OLD
+            Pygame_OLD = t1
+            file_Setting.set(t2)
+            ttkVar.set("")
+        else:
+            ttkVar.set("error file not found")
+
     # ======== Console ========
     console_scrollable_frame, overall_canvas = create_scrollable_frame(Console_Window["Console"])
     ttk.Label(console_scrollable_frame, text="Load Data", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
-    add_button_input_text(console_scrollable_frame, "select setting file",lambda ttkVar=None: print("Hello"))
-    add_button_input_text(console_scrollable_frame, "read last data",lambda ttkVar=None: print("Hello"))
+    add_button_input_text(console_scrollable_frame, "select setting file",read_Setting)
+    add_button_input_text(console_scrollable_frame, "read last data",read_OLD)
     ttk.Label(console_scrollable_frame, text="Simulation", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
     add_readonly_value(console_scrollable_frame,"setting from file : ",val_var=file_Setting,w=(13,30,5))
     add_readonly_value(console_scrollable_frame,"load data from file : ",val_var=file_OLD,w=(15,30,5))
@@ -317,21 +347,24 @@ def set_tkinter(file_Setting,file_OLD):
 
     def start_pygame():
         global pygame_threading
-        if not pygame_threading:
+        if pygame_threading is None:
             pygame_threading = threading.Thread(target=run_pygame.run_pygame, args = (Pygame_Setting, stop_event,shared_state_read, shared_state_modify))
-        if not pygame_threading.is_alive():
-            if pygame_threading.ident:
-                pygame_threading = threading.Thread(target=run_pygame.run_pygame, args = (Pygame_Setting, stop_event,shared_state_read, shared_state_modify))
             pygame_threading.start()
     def close_pygame():
-        if pygame_threading and pygame_threading.is_alive():
+        if pygame_threading is not None and pygame_threading.is_alive():
             stop_event.set()
-    
+    def pygame_threading_update():
+        global pygame_threading
+        if pygame_threading is not None and not pygame_threading.is_alive() and pygame_threading.ident:
+            pygame_threading = None
+        root.after(100, pygame_threading_update)
+
     root.protocol("WM_DELETE_WINDOW", on_closing)
     update_shared_state()
     switch_to(Console_Window["Console"])
     get_FPS()
-    root.after(100, start_pygame)
+    pygame_threading_update()
+    # root.after(100, start_pygame)
     root.mainloop()
     
     stop_event.set()
@@ -345,6 +378,7 @@ if __name__ == "__main__":
     python run_console.py setting.json environment.json 用輸入的設定和之前存檔跑
     '''
     # setting.json environment.json 是相對於 run_console.py 的位置，預設資料存在 data 內
+    pygame_threading = None
     if (len(sys.argv) == 2):
         file_Setting = sys.argv[1]
         Pygame_Setting,file_Setting = read_data.read_Setting(file_Setting)
@@ -358,4 +392,4 @@ if __name__ == "__main__":
         Pygame_Setting,file_Setting = read_data.read_Setting()
         Pygame_OLD,file_OLD = read_data.read_OLD()
     
-    set_tkinter(file_Setting,file_OLD)
+    set_tkinter()
