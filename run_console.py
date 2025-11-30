@@ -37,7 +37,8 @@ def set_tkinter():
         "Overall_Bird": {
             "Number": ttk.IntVar(value = 100), # bird 數量
             "Speed_Variation_Bound": ttk.DoubleVar(value = 1),
-            "Movement_Accuracy": ttk.IntVar(value = 100)
+            "Movement_Accuracy": ttk.IntVar(value = 100),
+            "Rotation_Weight": ttk.IntVar(value = 3),
         },
         "Overall_Predator": {
             "Number": ttk.IntVar(value = 3), # predator 數量
@@ -308,6 +309,7 @@ def set_tkinter():
     add_slider(simSet_scrollable_frame, "Number", vars_dict_modify["Overall_Bird"]["Number"], 0, 500, step = 1, section = "Bird")
     add_slider(simSet_scrollable_frame, "Movement Accuracy", vars_dict_modify["Overall_Bird"]["Movement_Accuracy"], 0, 100, step = 1, section = "Bird")
     add_slider(simSet_scrollable_frame, "Speed Variation Bound", vars_dict_modify["Overall_Bird"]["Speed_Variation_Bound"], 0, 20, step = 0.1, section = "Bird")
+    add_slider(simSet_scrollable_frame, "Rotation Weight", vars_dict_modify["Overall_Bird"]["Rotation_Weight"], 0, 100, step = 1, section = "Bird")
 
     ttk.Label(simSet_scrollable_frame, text="Predator", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
     add_slider(simSet_scrollable_frame, "Number", vars_dict_modify["Overall_Predator"]["Number"], 0, 50, step = 1, section = "Predator")

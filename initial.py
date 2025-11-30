@@ -5,7 +5,7 @@ def setGlobal():
         "Overall":{
             "FPS": 60,
             "Bounce_Damping": 0.8, # bird 碰撞時能量遞減
-            "Damping" : 20, #阻力 (1e-4)
+            "Damping" : 10, #阻力 (1e-4)
             "Interval_Of_Record": 0 # 紀錄模擬狀態的時間間隔(s)，為 0 時不記錄
         },
         "Evolution":{
@@ -21,7 +21,8 @@ def setGlobal():
             # 為提升效能我這裡只讓 bird 與隨機 (n-1)*Movement_Accuracy 隻 bird 互動
             # 另一種想法是讓每隻 bird 有 Movement_Accuracy 的機率"不合群"，違背自然法則，模擬自然的隨機性
             "Movement_Accuracy": 100, # bird 不合群率 (%)
-            "Speed_Variation_Bound": 1 # bird 的速度變化限制，影響適應度
+            "Speed_Variation_Bound": 1, # bird 的速度變化限制，影響適應度
+            "Rotation_Weight": 5, # bird 的計算方向時，原方向的乘值，值越大越不容易轉向
         },
         "Upper_Bound_Bird":{
             "Size": 1000,
