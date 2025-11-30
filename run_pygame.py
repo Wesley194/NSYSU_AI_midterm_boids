@@ -8,9 +8,10 @@ SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 SCREEN_CNETER=(SCREEN_WIDTH/2,SCREEN_HEIGHT/2)
 BACKGROUND_COLOR = (25, 25, 25)
-SPEED_VARIATION_BOUND = 0.5
+# 全域變數
+Last_Record = 0
 
-def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_read=None):
+def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_read=None,OLD_data=None,save_OLD_data=None,file_Record=None):
 
     #初始化
     pygame.init()
@@ -18,7 +19,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
     pygame.display.set_caption('boids V5.0.0')
     Timer = pygame.time.Clock()
 
-    #全域變數
+    # run_pygame 區域變數
     Bird_Color_Slow = pygame.math.Vector3(*Setting["Overall_Bird"]["Color_Slow"]) #bird 最慢速顏色
     Bird_Color_Fast = pygame.math.Vector3(*Setting["Overall_Bird"]["Color_Fast"]) #bird 最快速顏色
     Bird_Color_ChangeRate = Bird_Color_Fast-Bird_Color_Slow
@@ -38,17 +39,37 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             return int(Int_part)
         else: return val*rate
 
+    def save_simulation(birds,predators,obstacles):
+        save_OLD_data["verify"] = "OLD"
+        save_OLD_data["birds"] = [x.pack_property() for x in birds if x.situation == "alive"]
+        save_OLD_data["predators"] = [x.pack_property() for x in predators]
+        save_OLD_data["obstacles"] = [x.pack_property() for x in obstacles]
+
+    def record_simulation(birds,file_Record):
+        global Last_Record
+        if Setting['Overall']['Interval_Of_Record']>0 and pygame.time.get_ticks()-Last_Record>Setting['Overall']['Interval_Of_Record']*1000:
+            read_data.record_simulation(
+                {"time":pygame.time.get_ticks(),"birds":[x.Attribute for x in birds]},file_Record,"," if Last_Record>0 else ""
+            )
+            Last_Record = pygame.time.get_ticks()
+
     #物件定義
     class Animal:
-        def __init__(self,pos,size,speed,color=(255, 255, 255)):
-            self.position = pygame.math.Vector2(pos['x'], pos['y']) #初始位置
-            self.direction=pygame.math.Vector2(0,0)
-            self.direction.from_polar((1, random.uniform(1,360)))#初始方向
-            self.speed = speed #初始速率
+        def __init__(self,pos={"x":0,"y":0},size=10,speed=100,color=(255, 255, 255),load_data=None):
+            if load_data:
+                self.position = pygame.math.Vector2(load_data["position"]) #初始位置
+                self.direction = pygame.math.Vector2(load_data["direction"])#初始方向
+                self.speed = load_data["speed"] #初始速率
+                self.color = load_data["color"] #顏色
+                self.size = load_data["size"] #大小
+            else:
+                self.position = pygame.math.Vector2(pos['x'], pos['y']) #初始位置
+                self.direction=pygame.math.Vector2(0,0)
+                self.direction.from_polar((1, random.uniform(1,360)))#初始方向
+                self.speed = speed #初始速率
+                self.color = color #顏色
+                self.size = size #大小
             self.velocity = self.direction*self.speed #初始速度
-            self.color = color #顏色
-            self.size = size #大小
-            self.situation = "alive" #個體目前的狀態，有 1.alive 2.dying(做死亡動畫) 3.dead(即將重生)
 
         def draw(self, screen):
             right_vector = pygame.math.Vector2(-self.direction.y, self.direction.x) #垂直於 self.direction 的向量
@@ -95,8 +116,23 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             elif self.position.y < 0:
                 self.position.y = SCREEN_HEIGHT
 
+        def pack_property(self):
+            return {
+                "position" : tuple(self.position),
+                "direction" : tuple(self.direction),
+                "speed" : float(self.speed),
+                "color" : tuple(self.color), 
+                "size" : float(self.size)
+            }
+
     class Bird(Animal):
-        def __init__(self, pos=None, load_Setting=None):
+        def __init__(self, pos=None, load_Setting=None, load_data=None):
+            if load_data:
+                self.situation = "alive" #個體目前的狀態，有 1.alive 2.dying(做死亡動畫) 3.dead(即將重生)
+                self.Attribute = load_data["Attribute"].copy()
+                super(Bird,self).__init__(load_data=load_data)
+                return
+            
             if load_Setting:
                 self.Attribute = load_Setting
             else:
@@ -119,6 +155,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 ]
                 pos = random.choice(edges)
             
+            self.situation = "alive" #個體目前的狀態，有 1.alive 2.dying(做死亡動畫) 3.dead(即將重生)
             super(Bird,self).__init__(pos, self.Attribute["Size"], (self.Attribute["MIN_Speed"] + self.Attribute["MAX_Speed"]) / 2) 
         
         def apply_force(self, boids, Target):
@@ -136,7 +173,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 #確保不是自己且對象是存活的
                 if other is not self and other.situation == "alive":
                     #計算兩個 boid 之間的距離
-                    distance = self.position.distance_to(other.position)-other.Attribute["Size"]/2
+                    distance = self.position.distance_to(other.position)
 
                     #檢查距離是否在排斥範圍內
                     if 0 < distance < self.Attribute["Perception_Radius"]:
@@ -173,11 +210,6 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                     cohesion_force = cohesion_force.normalize() * self.Attribute["MAX_Speed"] - self.velocity
                     if cohesion_force.length_squared() > self.Attribute["Cohesion_Weight"]**2:
                         cohesion_force.scale_to_length(self.Attribute["Cohesion_Weight"])
-
-            if neighbor_count > 5:
-                self.Attribute["Fitness"]+=DT * 0.2
-            elif neighbor_count < 2:
-                self.Attribute["Fitness"]-=DT
 
             return separation_force + alignment_force + cohesion_force 
 
@@ -244,16 +276,19 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
                 #適應度評分
                 self.Attribute["Fitness"]+=DT
-                if (force.length() < SPEED_VARIATION_BOUND):
-                    self.Attribute["Fitness"]+=DT * 0.4
-                else:
-                    self.Attribute["Fitness"]-=DT * 0.2
+                if (force.length() < Setting["Overall_Bird"]["Speed_Variation_Bound"]):
+                    self.Attribute["Fitness"]+=DT * 0.5
             
             elif (self.situation == "dying"):
                 #死亡後:本體顏色漸暗
                 self.color = (self.color[0] * 0.97, self.color[1] * 0.97, self.color[2] * 0.97)
                 if (self.color[0] <= 15):
                     self.situation = "dead"
+
+        def pack_property(self):
+            tmp = super().pack_property()
+            tmp["Attribute"] = self.Attribute.copy()
+            return tmp
 
         @staticmethod
         def reproduction(birds):
@@ -276,7 +311,11 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                     shared_state_modify["Bird"][key] += boid.Attribute[key]/L
 
     class Predator(Animal):
-        def __init__(self, pos = None):
+        def __init__(self, pos = None, load_data=None):
+            if load_data:
+                self.Attribute = Setting["Predator"]
+                super(Predator, self).__init__(load_data=load_data)
+                return
             if pos is None:
                 edges = [
                     {'x': 0, 'y': random.randint(0, SCREEN_HEIGHT)},          
@@ -285,6 +324,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                     {'x': random.randint(0, SCREEN_WIDTH), 'y': SCREEN_HEIGHT}
                 ]
                 pos = random.choice(edges)
+
             self.Attribute = Setting["Predator"]
             super(Predator, self).__init__(pos, self.Attribute["Size"], self.Attribute["MAX_Speed"], color=(255, 30, 45))
         
@@ -540,7 +580,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                         return self.track3(all_boids)
                     case 4:
                         return self.track4(all_boids)
-        
+            else: return pygame.math.Vector2(0, 0)
         #避開其他 predator
         def apply_separation(self, predators):
             separation_force = pygame.math.Vector2(0, 0)
@@ -548,7 +588,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
             for predator in predators:
                 distance_vector = self.position - predator.position
-                distance = distance_vector.length() - predator.Attribute["Size"]/2
+                distance = distance_vector.length()
 
                 #檢查是否在觀察範圍內
                 if distance < self.Attribute["Perception_Radius"] and distance > 0:
@@ -576,7 +616,6 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             #實際運動
             super(Predator, self).basis_update(self.Attribute["MAX_Speed"], self.Attribute["MIN_Speed"], obstacles)
 
-
     class Particle(Animal):
         def __init__(self, pos, dir):
             self.speed = random.randint(Setting["Particle"]["MIN_Speed"], Setting["Particle"]["MAX_Speed"])
@@ -596,12 +635,15 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             #繪製圓形
             pygame.draw.circle(screen, self.color, (self.position[0], self.position[1]), Setting["Particle"]["Radious"])
 
-
     class Obstacle:
-        def __init__(self, vertices, color=(150, 150, 150)):
+        def __init__(self, vertices=[], color=(150, 150, 150),load_data=None):
             #將頂點列表轉換為 Vector2 列表，方便運算
-            self.vertices = [pygame.math.Vector2(v) for v in vertices]
-            self.color = color
+            if load_data:
+                self.vertices = [pygame.math.Vector2(v) for v in load_data["vertices"]]
+                self.color = load_data["color"]
+            else:
+                self.vertices = [pygame.math.Vector2(v) for v in vertices]
+                self.color = color
 
             #計算出多邊形的中心點
             if self.vertices:
@@ -658,6 +700,13 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                     return True 
 
             return False
+        
+        def pack_property(self):
+            return {
+                "vertices" : [tuple(x) for x in self.vertices],
+                "color" : tuple(self.color)
+            }
+        
         @staticmethod
         def generate_random_polygon(center_x: float, center_y: float, min_radius: float, max_radius: float, num_vertices: int) -> list[tuple[float, float]]:
             """
@@ -691,20 +740,24 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
     # main
     # load
-    birds = [Bird() for _ in range(Setting["Overall_Bird"]["Number"])] #在邊緣生成 bird
-    predators = [Predator() for _ in range(Setting["Overall_Predator"]["Number"])]
-    particles = []
-    obstacles = [Obstacle(Obstacle.generate_random_polygon(
-        random.randint(100, SCREEN_WIDTH - 100),
-        random.randint(100, SCREEN_HEIGHT - 100),
-        Setting["Obstacle"]["Size"], int(Setting["Obstacle"]["Size"] * 1.4), random.randint(4, 20))) for _ in range(Setting["Obstacle"]["Number"])]
+    if OLD_data:
+        birds = [Bird(load_data=x) for x in OLD_data["birds"]]
+        predators = [Predator(load_data=x) for x in OLD_data["predators"]]
+        obstacles = [Obstacle(load_data=x) for x in OLD_data["obstacles"]]
+    else:
+        birds = [Bird() for _ in range(Setting["Overall_Bird"]["Number"])] #在邊緣生成 bird
+        predators = [Predator() for _ in range(Setting["Overall_Predator"]["Number"])]
+        obstacles = [Obstacle(Obstacle.generate_random_polygon(
+            random.randint(100, SCREEN_WIDTH - 100),
+            random.randint(100, SCREEN_HEIGHT - 100),
+            Setting["Obstacle"]["Size"], int(Setting["Obstacle"]["Size"] * 1.4), random.randint(4, 20))) for _ in range(Setting["Obstacle"]["Number"])]
 
+    particles = []
     # tick
     while Running and (not stop_event or (stop_event and not stop_event.is_set())):
         #取得動作
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                if stop_event : stop_event.set()
                 Running = False
                 break
         
@@ -720,7 +773,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
         desired_Bird_count = int(Setting["Overall_Bird"]["Number"])
         if desired_Bird_count > len(birds):
             for _ in range(desired_Bird_count - len(birds)):
-               birds.append(Bird.reproduction(birds))
+               birds.append(Bird.reproduction(birds) if len(birds)>10 else Bird())
         elif desired_Bird_count < len(birds):
                birds = birds[:desired_Bird_count]
 
@@ -759,13 +812,13 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
         Bird_Mouse_Activity["click"] = pygame.mouse.get_pressed()[0]-pygame.mouse.get_pressed()[2]
         
         #更新 bird 的狀態 
-        for i in range(Setting["Overall_Bird"]["Number"]):
+        for i in range(0,len(birds)):
             #死掉的 bird 在邊界重生
             if (birds[i].situation == "dead"):
                 birds[i] = Bird.reproduction(birds)
             else:
                 birds[i].update(birds,obstacles,predators,
-                    Target=np.random.choice(np.arange(0, Setting["Overall_Bird"]["Number"]), size = (int(Setting["Overall_Bird"]["Number"] * Setting["Overall_Bird"]["Movement_Accuracy"]/100), ), replace = False)
+                    Target=np.random.choice(np.arange(0, len(birds)), size = (int(len(birds) * Setting["Overall_Bird"]["Movement_Accuracy"]/100), ), replace = False)
                 ) 
                 birds[i].draw(Screen)
 
@@ -784,12 +837,20 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
         pygame.display.flip()
 
+        #紀錄模擬資料
+        if file_Record: record_simulation(birds,file_Record)
+
         #計算 dt
         DT = Timer.tick(Setting['Overall']['FPS']) / 1000
         if stop_event: shared_state_modify['Overall']['DT'] = DT
 
     #結束清理
+    if stop_event:
+        save_simulation(birds,predators,obstacles)
+        read_data.close_record(file_Record)
     pygame.quit()
+    if stop_event:stop_event.clear()
+
 
 if __name__ == "__main__":
-    run_pygame(read_data.read_Setting())
+    run_pygame(read_data.read_Setting()[0])
