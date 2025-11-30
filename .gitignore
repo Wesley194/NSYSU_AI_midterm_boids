@@ -7,4 +7,5 @@
 /dist
 /__pycache__
 /boids_old.py
-/data/record/*.json
+/data/**/*.json
+!/data/default_setting.json

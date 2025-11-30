@@ -264,6 +264,8 @@ def set_tkinter():
         if close_pygame():
             while not Pygame_save_OLD_data:pass
             read_data.save_OLD(Pygame_save_OLD_data,ttkVar.get())
+    def save_Setting(ttkVar=None):
+        read_data.save_OLD(Pygame_Setting,ttkVar.get())
 
     # ======== Console ========
     console_scrollable_frame, overall_canvas = create_scrollable_frame(Console_Window["Console"])
@@ -278,6 +280,7 @@ def set_tkinter():
     ttk.Button(t1_frame, text = "open simulation", bootstyle = "solid-primary", command = (lambda : start_pygame())).pack(side="left")
     ttk.Button(t1_frame, text = "close simulation", bootstyle = "solid-primary", command = (lambda : close_pygame())).pack(side="left", padx=10)
     ttk.Label(console_scrollable_frame, text="Save Data", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x",pady=8, padx=10)
+    add_button_input_text(console_scrollable_frame, "save Setting",save_Setting)
     add_button_input_text(console_scrollable_frame, "save and close sim",save_OLD_data)
     add_slider(console_scrollable_frame, "interval of record", vars_dict_modify["Overall"]["Interval_Of_Record"], 0, 180, step = 1, section = "Overall")
     ttk.Label(console_scrollable_frame, text='When above value > 0 and the simulation is in progress, the program will record the simulation', width=20, font=("Helvetica",8), foreground="#ABABAB").pack(fill="x",pady=0, padx=10)
