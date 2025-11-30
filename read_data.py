@@ -43,6 +43,22 @@ def read_OLD(file_name = None):
 
 def save_OLD(data,file_name = ""):
     if ".json" not in file_name:
-        file_name = f"data/record_at_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+        file_name = f"data/simulation_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
     with open(file_name, "w") as f:
             json.dump(data, f)
+        
+def open_new_record(file_name = ""):
+    if ".json" not in file_name:
+        file_name = f"data/record/record_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+    with open(file_name, "w") as f:
+        f.write("[")
+    return file_name
+
+def record_simulation(data,file_name,comma=","):
+    json_line = json.dumps(data, ensure_ascii=False)
+    with open(file_name, "a") as f:
+        f.write(f'{comma}\n{json_line}')
+
+def close_record(file_name):
+    with open(file_name, "a") as f:
+        f.write("\n]")

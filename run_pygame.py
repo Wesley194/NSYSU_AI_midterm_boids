@@ -8,8 +8,10 @@ SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 SCREEN_CNETER=(SCREEN_WIDTH/2,SCREEN_HEIGHT/2)
 BACKGROUND_COLOR = (25, 25, 25)
+# 全域變數
+Last_Record = 0
 
-def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_read=None,OLD_data=None,save_OLD_data=None):
+def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_read=None,OLD_data=None,save_OLD_data=None,file_Record=None):
 
     #初始化
     pygame.init()
@@ -17,7 +19,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
     pygame.display.set_caption('boids V5.0.0')
     Timer = pygame.time.Clock()
 
-    #全域變數
+    # run_pygame 區域變數
     Bird_Color_Slow = pygame.math.Vector3(*Setting["Overall_Bird"]["Color_Slow"]) #bird 最慢速顏色
     Bird_Color_Fast = pygame.math.Vector3(*Setting["Overall_Bird"]["Color_Fast"]) #bird 最快速顏色
     Bird_Color_ChangeRate = Bird_Color_Fast-Bird_Color_Slow
@@ -42,6 +44,14 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
         save_OLD_data["birds"] = [x.pack_property() for x in birds if x.situation == "alive"]
         save_OLD_data["predators"] = [x.pack_property() for x in predators]
         save_OLD_data["obstacles"] = [x.pack_property() for x in obstacles]
+
+    def record_simulation(birds,file_Record):
+        global Last_Record
+        if Setting['Overall']['Interval_Of_Record']>0 and pygame.time.get_ticks()-Last_Record>Setting['Overall']['Interval_Of_Record']*1000:
+            read_data.record_simulation(
+                {"time":pygame.time.get_ticks(),"birds":[x.Attribute for x in birds]},file_Record,"," if Last_Record>0 else ""
+            )
+            Last_Record = pygame.time.get_ticks()
 
     #物件定義
     class Animal:
@@ -827,12 +837,17 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
         pygame.display.flip()
 
+        #紀錄模擬資料
+        if file_Record: record_simulation(birds,file_Record)
+
         #計算 dt
         DT = Timer.tick(Setting['Overall']['FPS']) / 1000
         if stop_event: shared_state_modify['Overall']['DT'] = DT
 
     #結束清理
-    save_simulation(birds,predators,obstacles)
+    if stop_event:
+        save_simulation(birds,predators,obstacles)
+        read_data.close_record(file_Record)
     pygame.quit()
     if stop_event:stop_event.clear()
 

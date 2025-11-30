@@ -27,7 +27,8 @@ def set_tkinter():
         "Overall":{
             "Bounce_Damping": ttk.DoubleVar(value = 0.8), # bird 碰撞時能量遞減
             "Damping" : ttk.IntVar(value = 2), #阻力
-            "Pause" : ttk.BooleanVar(value = False) #是否暫停
+            "Pause" : ttk.BooleanVar(value = False), #是否暫停
+            "Interval_Of_Record": ttk.IntVar(value = 0), # 紀錄模擬狀態的時間間隔(s)，為 0 時不記錄
         },
         "Overall_Bird": {
             "Number": ttk.IntVar(value = 300), # bird 數量
@@ -175,10 +176,12 @@ def set_tkinter():
         val_label.pack(side = "left", padx = 5)
 
         def update_label(v):
+            raw_value = float(v)
+            fixed_value = round(raw_value / step) * step
             if isinstance(var, ttk.DoubleVar):
-                val_label.config(text = f"{float(v):.1f}")
+                var.set(round(fixed_value,1))
             else:
-                val_label.config(text = str(int(float(v))))
+                var.set(int(round(fixed_value,0)))
 
         #更新數值
         def adjust(v):
@@ -189,7 +192,7 @@ def set_tkinter():
                     new_val = from_
                 elif new_val > to_:
                     new_val = to_
-                var.set(round(new_val, 2))
+
                 update_label(new_val)
             except ValueError:
                 #忽略無效的轉型請求
@@ -201,7 +204,8 @@ def set_tkinter():
             row_frame,  from_ = from_, to = to_, orient = "horizontal", length = 200, variable = var, command = update_label)
         slider.pack(side = "left", padx = 8, expand = True)
         ttk.Button(row_frame, text = "+", bootstyle = "secondary", width = 1, command = lambda: adjust(step)).pack(side = "left", padx = 2)
-    
+        update_label(var.get())
+
     def add_readonly_value(parent, label_text, section=None, key=None, val_var=None,w=(20,10,5)):
         row_frame = ttk.Frame(parent)
         row_frame.pack(fill="x", pady=8, padx=10)
@@ -218,7 +222,7 @@ def set_tkinter():
         row_frame = ttk.Frame(parent)
         row_frame.pack(fill="x", pady=8, padx=10)
         ttkVar = ttk.StringVar(value = "fileName")
-        ttk.Entry(row_frame, textvariable=ttkVar,width=30).pack(side="left", anchor="w")
+        ttk.Entry(row_frame, textvariable=ttkVar,width=40).pack(side="left", anchor="w")
         ttk.Button(row_frame, text = text, bootstyle = "solid-primary", command = (lambda v=ttkVar: function(v))).pack(side="left", padx=10)
         return ttkVar
 
@@ -258,8 +262,8 @@ def set_tkinter():
 
     def save_OLD_data(ttkVar=None):
         if close_pygame():
-            while not pygame_save_OLD_data:pass
-            read_data.save_OLD(pygame_save_OLD_data,ttkVar.get())
+            while not Pygame_save_OLD_data:pass
+            read_data.save_OLD(Pygame_save_OLD_data,ttkVar.get())
 
     # ======== Console ========
     console_scrollable_frame, overall_canvas = create_scrollable_frame(Console_Window["Console"])
@@ -274,7 +278,10 @@ def set_tkinter():
     ttk.Button(t1_frame, text = "open simulation", bootstyle = "solid-primary", command = (lambda : start_pygame())).pack(side="left")
     ttk.Button(t1_frame, text = "close simulation", bootstyle = "solid-primary", command = (lambda : close_pygame())).pack(side="left", padx=10)
     ttk.Label(console_scrollable_frame, text="Save Data", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x",pady=8, padx=10)
-    add_button_input_text(console_scrollable_frame, "save data and close simulation",save_OLD_data)
+    add_button_input_text(console_scrollable_frame, "save and close sim",save_OLD_data)
+    add_slider(console_scrollable_frame, "interval of record", vars_dict_modify["Overall"]["Interval_Of_Record"], 0, 180, step = 1, section = "Overall")
+    ttk.Label(console_scrollable_frame, text='When above value > 0 and the simulation is in progress, the program will record the simulation', width=20, font=("Helvetica",8), foreground="#ABABAB").pack(fill="x",pady=0, padx=10)
+    ttk.Label(console_scrollable_frame, text='data in "data/record/record_<time>.json", and the recording interval is defined above. (unit: s)', width=20, font=("Helvetica",8), foreground="#ABABAB").pack(fill="x",pady=0, padx=10)
 
     # ======== 模擬設定 ========
     simSet_scrollable_frame, bird_canvas = create_scrollable_frame(Console_Window["Sim Set"])  
@@ -348,21 +355,23 @@ def set_tkinter():
         vars_dict_modify["Overall"]["Pause"].set(not vars_dict_modify["Overall"]["Pause"].get())
 
     def start_pygame():
-        global pygame_threading
-        if pygame_threading is None:
-            pygame_save_OLD_data.clear()
+        global Pygame_threading
+        if Pygame_threading is None:
+            Pygame_save_OLD_data.clear()
             vars_dict_modify["Overall"]["Pause"].set(False)
-            pygame_threading = threading.Thread(target=run_pygame.run_pygame, args = (Pygame_Setting, stop_event,shared_state_read, shared_state_modify,Pygame_OLD,pygame_save_OLD_data))
-            pygame_threading.start()
+            Pygame_threading = threading.Thread(target=run_pygame.run_pygame, args = (
+                Pygame_Setting, stop_event,shared_state_read, shared_state_modify,Pygame_OLD,Pygame_save_OLD_data,read_data.open_new_record()
+            ))
+            Pygame_threading.start()
     def close_pygame():
-        if pygame_threading is not None and pygame_threading.is_alive():
+        if Pygame_threading is not None and Pygame_threading.is_alive():
             stop_event.set()
             return True
         return False
     def pygame_threading_update():
-        global pygame_threading
-        if pygame_threading is not None and not pygame_threading.is_alive() and pygame_threading.ident:
-            pygame_threading = None
+        global Pygame_threading
+        if Pygame_threading is not None and not Pygame_threading.is_alive() and Pygame_threading.ident:
+            Pygame_threading = None
         root.after(100, pygame_threading_update)
 
     root.protocol("WM_DELETE_WINDOW", on_closing)
@@ -384,8 +393,8 @@ if __name__ == "__main__":
     python run_console.py setting.json environment.json 用輸入的設定和之前存檔跑
     '''
     # setting.json environment.json 是相對於 run_console.py 的位置，預設資料存在 data 內
-    pygame_threading = None
-    pygame_save_OLD_data = {}
+    Pygame_threading = None
+    Pygame_save_OLD_data = {}
     if (len(sys.argv) == 2):
         file_Setting = sys.argv[1]
         Pygame_Setting,file_Setting = read_data.read_Setting(file_Setting)

@@ -1,11 +1,12 @@
 import json
 def setGlobal():
     return {
-        "verify": "Setting",
+        "verify": "Setting", # 讀檔驗證
         "Overall":{
             "FPS": 60,
             "Bounce_Damping": 0.8, # bird 碰撞時能量遞減
             "Damping" : 20, #阻力 (1e-4)
+            "Interval_Of_Record": 0 # 紀錄模擬狀態的時間間隔(s)，為 0 時不記錄
         },
         "Evolution":{
             "Init_Mutation_Rate": 0.5,
