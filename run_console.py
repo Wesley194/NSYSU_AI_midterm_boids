@@ -50,6 +50,7 @@ def set_tkinter():
             "Separation_Weight": ttk.DoubleVar(value = 1), # predator 分離力
             "Track_Weight": ttk.DoubleVar(value = 2), # predator 追蹤力
             "Eat_Radius": ttk.IntVar(value = 8), # predator 捕食範圍
+            "Track_Mode": ttk.IntVar(value = 4)
         },
         "Obstacle": {
             "Number": ttk.IntVar(value = 4), # obstacle 數量
@@ -317,6 +318,7 @@ def set_tkinter():
     add_slider(simSet_scrollable_frame, "Separation Weight", vars_dict_modify["Predator"]["Separation_Weight"], 0, 20, step = 0.1, section = "Predator")
     add_slider(simSet_scrollable_frame, "Track Weight", vars_dict_modify["Predator"]["Track_Weight"], 0, 20, step = 0.1, section = "Predator")
     add_slider(simSet_scrollable_frame, "Eat Radius", vars_dict_modify["Predator"]["Eat_Radius"], 0, 100, step = 1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Track Mode", vars_dict_modify["Predator"]["Track_Mode"], 1, 4, step = 1, section = "Predator")
     
     ttk.Label(simSet_scrollable_frame, text="Obstacle", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
     add_slider(simSet_scrollable_frame, "Obstacle Number", vars_dict_modify["Obstacle"]["Number"], 0, 20, step = 1, section = "Obstacle")

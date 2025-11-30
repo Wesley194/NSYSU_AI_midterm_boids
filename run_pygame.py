@@ -606,7 +606,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             return separation_force
         
         def update(self, all_boids, obstacles, predators):
-            force = self.apply_track(all_boids)+self.apply_separation(predators) #計算作用力
+            force = self.apply_track(all_boids,self.Attribute["Track_Mode"])+self.apply_separation(predators) #計算作用力
             self.direction = (self.direction+force).normalize() #調整方向
             self.speed += force.length() #調整速率
            
