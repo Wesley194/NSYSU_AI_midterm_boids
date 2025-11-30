@@ -156,7 +156,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 pos = random.choice(edges)
             
             self.situation = "alive" #個體目前的狀態，有 1.alive 2.dying(做死亡動畫) 3.dead(即將重生)
-            super(Bird,self).__init__(pos, self.Attribute["Size"], (self.Attribute["MIN_Speed"] + self.Attribute["MAX_Speed"]) / 2) 
+            super(Bird,self).__init__(pos, self.Attribute["Size"], self.Attribute["MAX_Speed"]) 
         
         def apply_force(self, boids, Target):
             separation_force = pygame.math.Vector2(0, 0) #分離推力
@@ -197,8 +197,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 #計算對齊力
                 #對齊力 = 理想速度 (平均速度 * 最大速度) - 目前速度
                 if alignment_force.length_squared() > 0:
-                    alignment_force /= neighbor_count
-                    alignment_force = alignment_force.normalize() * self.Attribute["MAX_Speed"] - self.velocity
+                    alignment_force = alignment_force.normalize() * self.Attribute["MAX_Speed"]
                     if alignment_force.length_squared() > self.Attribute["Alignment_Weight"]**2:
                         alignment_force.scale_to_length(self.Attribute["Alignment_Weight"])
 
@@ -207,7 +206,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 center_of_mass /= neighbor_count
                 cohesion_force = center_of_mass - self.position
                 if cohesion_force.length_squared() > 0:
-                    cohesion_force = cohesion_force.normalize() * self.Attribute["MAX_Speed"] - self.velocity
+                    cohesion_force = cohesion_force.normalize() * self.Attribute["MAX_Speed"]
                     if cohesion_force.length_squared() > self.Attribute["Cohesion_Weight"]**2:
                         cohesion_force.scale_to_length(self.Attribute["Cohesion_Weight"])
 
@@ -261,9 +260,14 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
         def update(self, all_boids, obstacles, predators, Target):         
             if (self.situation == "alive"):
                 #調整速度
-                force = self.apply_force(all_boids, Target) + self.flee_predator(predators) + self.mouse_activity() #計算作用力
-                self.direction = (self.direction + force).normalize() #調整方向
-                self.speed += force.length() #調整速率
+                force = self.apply_force(all_boids, Target) #計算作用力
+                flee_force = self.flee_predator(predators) + self.mouse_activity() #計算逃跑作用力
+
+                rotation_force = self.direction*Setting["Overall_Bird"]["Rotation_Weight"] + force + flee_force
+                if rotation_force.length_squared()>0: self.direction = rotation_force.normalize() #調整方向
+                
+                acceleration = flee_force.length()
+                self.speed += acceleration #調整速率
 
                 #實際運動
                 super(Bird,self).basis_update(self.Attribute["MAX_Speed"], self.Attribute["MIN_Speed"], obstacles)
@@ -276,7 +280,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
                 #適應度評分
                 self.Attribute["Fitness"]+=DT
-                if (force.length() < Setting["Overall_Bird"]["Speed_Variation_Bound"]):
+                if (acceleration < Setting["Overall_Bird"]["Speed_Variation_Bound"]):
                     self.Attribute["Fitness"]+=DT * 0.5
             
             elif (self.situation == "dying"):
@@ -606,7 +610,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             return separation_force
         
         def update(self, all_boids, obstacles, predators):
-            force = self.apply_track(all_boids)+self.apply_separation(predators) #計算作用力
+            force = self.apply_track(all_boids,self.Attribute["Track_Mode"])+self.apply_separation(predators) #計算作用力
             self.direction = (self.direction+force).normalize() #調整方向
             self.speed += force.length() #調整速率
            
