@@ -9,7 +9,7 @@ SCREEN_HEIGHT = 720
 SCREEN_CNETER=(SCREEN_WIDTH/2,SCREEN_HEIGHT/2)
 BACKGROUND_COLOR = (25, 25, 25)
 
-def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_read=None,OLD_data=None):
+def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_read=None,OLD_data=None,save_OLD_data=None):
 
     #初始化
     pygame.init()
@@ -37,24 +37,29 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             return int(Int_part)
         else: return val*rate
 
-    def init_by_file(cls, load_data):
-        obj = cls.__new__(cls)
-        obj.__dict__.update(load_data)
-        return obj
-    
+    def save_simulation(birds,predators,obstacles):
+        save_OLD_data["verify"] = "OLD"
+        save_OLD_data["birds"] = [x.pack_property() for x in birds if x.situation == "alive"]
+        save_OLD_data["predators"] = [x.pack_property() for x in predators]
+        save_OLD_data["obstacles"] = [x.pack_property() for x in obstacles]
+
     #物件定義
     class Animal:
-        def __init__(self,pos,size,speed,color=(255, 255, 255),direction=None):
-            self.position = pygame.math.Vector2(pos['x'], pos['y']) #初始位置
-            if direction:
-                self.direction = pygame.math.Vector2(direction)
+        def __init__(self,pos={"x":0,"y":0},size=10,speed=100,color=(255, 255, 255),load_data=None):
+            if load_data:
+                self.position = pygame.math.Vector2(load_data["position"]) #初始位置
+                self.direction = pygame.math.Vector2(load_data["direction"])#初始方向
+                self.speed = load_data["speed"] #初始速率
+                self.color = load_data["color"] #顏色
+                self.size = load_data["size"] #大小
             else:
+                self.position = pygame.math.Vector2(pos['x'], pos['y']) #初始位置
                 self.direction=pygame.math.Vector2(0,0)
                 self.direction.from_polar((1, random.uniform(1,360)))#初始方向
-            self.speed = speed #初始速率
+                self.speed = speed #初始速率
+                self.color = color #顏色
+                self.size = size #大小
             self.velocity = self.direction*self.speed #初始速度
-            self.color = color #顏色
-            self.size = size #大小
 
         def draw(self, screen):
             right_vector = pygame.math.Vector2(-self.direction.y, self.direction.x) #垂直於 self.direction 的向量
@@ -101,8 +106,23 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             elif self.position.y < 0:
                 self.position.y = SCREEN_HEIGHT
 
+        def pack_property(self):
+            return {
+                "position" : tuple(self.position),
+                "direction" : tuple(self.direction),
+                "speed" : float(self.speed),
+                "color" : tuple(self.color), 
+                "size" : float(self.size)
+            }
+
     class Bird(Animal):
-        def __init__(self, pos=None, load_Setting=None):
+        def __init__(self, pos=None, load_Setting=None, load_data=None):
+            if load_data:
+                self.situation = "alive" #個體目前的狀態，有 1.alive 2.dying(做死亡動畫) 3.dead(即將重生)
+                self.Attribute = load_data["Attribute"].copy()
+                super(Bird,self).__init__(load_data=load_data)
+                return
+            
             if load_Setting:
                 self.Attribute = load_Setting
             else:
@@ -255,6 +275,11 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 if (self.color[0] <= 15):
                     self.situation = "dead"
 
+        def pack_property(self):
+            tmp = super().pack_property()
+            tmp["Attribute"] = self.Attribute.copy()
+            return tmp
+
         @staticmethod
         def reproduction(birds):
             W = np.array([obj.Attribute["Fitness"] for obj in birds])**Setting["Evolution"]["Reproduce_Weight"]
@@ -276,7 +301,11 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                     shared_state_modify["Bird"][key] += boid.Attribute[key]/L
 
     class Predator(Animal):
-        def __init__(self, pos = None):
+        def __init__(self, pos = None, load_data=None):
+            if load_data:
+                self.Attribute = Setting["Predator"]
+                super(Predator, self).__init__(load_data=load_data)
+                return
             if pos is None:
                 edges = [
                     {'x': 0, 'y': random.randint(0, SCREEN_HEIGHT)},          
@@ -285,6 +314,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                     {'x': random.randint(0, SCREEN_WIDTH), 'y': SCREEN_HEIGHT}
                 ]
                 pos = random.choice(edges)
+
             self.Attribute = Setting["Predator"]
             super(Predator, self).__init__(pos, self.Attribute["Size"], self.Attribute["MAX_Speed"], color=(255, 30, 45))
         
@@ -596,10 +626,14 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             pygame.draw.circle(screen, self.color, (self.position[0], self.position[1]), Setting["Particle"]["Radious"])
 
     class Obstacle:
-        def __init__(self, vertices, color=(150, 150, 150)):
+        def __init__(self, vertices=[], color=(150, 150, 150),load_data=None):
             #將頂點列表轉換為 Vector2 列表，方便運算
-            self.vertices = [pygame.math.Vector2(v) for v in vertices]
-            self.color = color
+            if load_data:
+                self.vertices = [pygame.math.Vector2(v) for v in load_data["vertices"]]
+                self.color = load_data["color"]
+            else:
+                self.vertices = [pygame.math.Vector2(v) for v in vertices]
+                self.color = color
 
             #計算出多邊形的中心點
             if self.vertices:
@@ -656,6 +690,13 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                     return True 
 
             return False
+        
+        def pack_property(self):
+            return {
+                "vertices" : [tuple(x) for x in self.vertices],
+                "color" : tuple(self.color)
+            }
+        
         @staticmethod
         def generate_random_polygon(center_x: float, center_y: float, min_radius: float, max_radius: float, num_vertices: int) -> list[tuple[float, float]]:
             """
@@ -690,7 +731,9 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
     # main
     # load
     if OLD_data:
-        pass
+        birds = [Bird(load_data=x) for x in OLD_data["birds"]]
+        predators = [Predator(load_data=x) for x in OLD_data["predators"]]
+        obstacles = [Obstacle(load_data=x) for x in OLD_data["obstacles"]]
     else:
         birds = [Bird() for _ in range(Setting["Overall_Bird"]["Number"])] #在邊緣生成 bird
         predators = [Predator() for _ in range(Setting["Overall_Predator"]["Number"])]
@@ -789,8 +832,10 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
         if stop_event: shared_state_modify['Overall']['DT'] = DT
 
     #結束清理
+    save_simulation(birds,predators,obstacles)
     pygame.quit()
-    stop_event.clear()
+    if stop_event:stop_event.clear()
+
 
 if __name__ == "__main__":
     run_pygame(read_data.read_Setting()[0])

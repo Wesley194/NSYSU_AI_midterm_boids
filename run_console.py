@@ -218,7 +218,7 @@ def set_tkinter():
         row_frame = ttk.Frame(parent)
         row_frame.pack(fill="x", pady=8, padx=10)
         ttkVar = ttk.StringVar(value = "fileName")
-        ttk.Entry(row_frame, textvariable=ttkVar).pack(side="left", anchor="w")
+        ttk.Entry(row_frame, textvariable=ttkVar,width=30).pack(side="left", anchor="w")
         ttk.Button(row_frame, text = text, bootstyle = "solid-primary", command = (lambda v=ttkVar: function(v))).pack(side="left", padx=10)
         return ttkVar
 
@@ -237,17 +237,29 @@ def set_tkinter():
                             var.set(Pygame_Setting[section][key])
             vars_dict_modify["Predator"]["MAX_Speed_Multiplier"].set(Pygame_Setting["Predator"]["MAX_Speed"]/Pygame_Setting["Predator"]["MIN_Speed"])
         else:
-            ttkVar.set("error file not found")
+            ttkVar.set("format error or file not found")
     def read_OLD(ttkVar=None):
         new_file_name = ttkVar.get()
         t1,t2 = read_data.read_OLD(new_file_name)
         if t1:
             global Pygame_OLD
             Pygame_OLD = t1
-            file_Setting.set(t2)
+            file_OLD.set(t2)
             ttkVar.set("")
+            #設定一致化
+            predator_Num = len(Pygame_OLD["predators"])
+            Pygame_Setting["Overall_Predator"]["Number"] = predator_Num
+            vars_dict_modify["Overall_Predator"]["Number"].set(predator_Num)
+            obstacle_Num = len(Pygame_OLD["obstacles"])
+            Pygame_Setting["Obstacle"]["Number"] = obstacle_Num
+            vars_dict_modify["Obstacle"]["Number"].set(obstacle_Num)
         else:
-            ttkVar.set("error file not found")
+            ttkVar.set("format error or file not found")
+
+    def save_OLD_data(ttkVar=None):
+        if close_pygame():
+            while not pygame_save_OLD_data:pass
+            read_data.save_OLD(pygame_save_OLD_data,ttkVar.get())
 
     # ======== Console ========
     console_scrollable_frame, overall_canvas = create_scrollable_frame(Console_Window["Console"])
@@ -257,9 +269,12 @@ def set_tkinter():
     ttk.Label(console_scrollable_frame, text="Simulation", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
     add_readonly_value(console_scrollable_frame,"setting from file : ",val_var=file_Setting,w=(13,30,5))
     add_readonly_value(console_scrollable_frame,"load data from file : ",val_var=file_OLD,w=(15,30,5))
-    ttk.Button(console_scrollable_frame, text = "open simulation", bootstyle = "solid-primary", command = (lambda : start_pygame())).pack(side="left", padx=10,pady=10)
-    ttk.Button(console_scrollable_frame, text = "close simulation", bootstyle = "solid-primary", command = (lambda : close_pygame())).pack(side="left", padx=10)
-    
+    t1_frame = ttk.Frame(console_scrollable_frame)
+    t1_frame.pack(fill="x", pady=8, padx=10)
+    ttk.Button(t1_frame, text = "open simulation", bootstyle = "solid-primary", command = (lambda : start_pygame())).pack(side="left")
+    ttk.Button(t1_frame, text = "close simulation", bootstyle = "solid-primary", command = (lambda : close_pygame())).pack(side="left", padx=10)
+    ttk.Label(console_scrollable_frame, text="Save Data", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x",pady=8, padx=10)
+    add_button_input_text(console_scrollable_frame, "save data and close simulation",save_OLD_data)
 
     # ======== 模擬設定 ========
     simSet_scrollable_frame, bird_canvas = create_scrollable_frame(Console_Window["Sim Set"])  
@@ -331,28 +346,19 @@ def set_tkinter():
     
     def switch_Pause():
         vars_dict_modify["Overall"]["Pause"].set(not vars_dict_modify["Overall"]["Pause"].get())
-        # shared_state_read["Overall"]["Pause"]=not shared_state_read["Overall"]["Pause"]
-
-    def load_Setting(ttkVar=None):
-        pass
-
-    def save_Setting():
-        return
-        # 儲存當前的設定，包括 UI 滑桿調整後的值
-        # UI 滑桿調整的值會更新到 Pygame_Setting 裡，所以這邊只要把 GA 的參數更新後存成 json
-        name = str(file_name.get())
-        save_entry.delete(0, "end")
-        with open("data/%s.json" %name, "w") as f:
-            json.dump(Pygame_Setting, f)
 
     def start_pygame():
         global pygame_threading
         if pygame_threading is None:
-            pygame_threading = threading.Thread(target=run_pygame.run_pygame, args = (Pygame_Setting, stop_event,shared_state_read, shared_state_modify))
+            pygame_save_OLD_data.clear()
+            vars_dict_modify["Overall"]["Pause"].set(False)
+            pygame_threading = threading.Thread(target=run_pygame.run_pygame, args = (Pygame_Setting, stop_event,shared_state_read, shared_state_modify,Pygame_OLD,pygame_save_OLD_data))
             pygame_threading.start()
     def close_pygame():
         if pygame_threading is not None and pygame_threading.is_alive():
             stop_event.set()
+            return True
+        return False
     def pygame_threading_update():
         global pygame_threading
         if pygame_threading is not None and not pygame_threading.is_alive() and pygame_threading.ident:
@@ -379,6 +385,7 @@ if __name__ == "__main__":
     '''
     # setting.json environment.json 是相對於 run_console.py 的位置，預設資料存在 data 內
     pygame_threading = None
+    pygame_save_OLD_data = {}
     if (len(sys.argv) == 2):
         file_Setting = sys.argv[1]
         Pygame_Setting,file_Setting = read_data.read_Setting(file_Setting)

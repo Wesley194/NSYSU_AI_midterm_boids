@@ -1,6 +1,7 @@
 import json
 def setGlobal():
     return {
+        "verify": "Setting",
         "Overall":{
             "FPS": 60,
             "Bounce_Damping": 0.8, # bird 碰撞時能量遞減

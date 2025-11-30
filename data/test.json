@@ -1,4 +1,5 @@
 {
+    "verify": "Setting",
     "Overall": {
         "FPS": 60,
         "Bounce_Damping": 0.8,
