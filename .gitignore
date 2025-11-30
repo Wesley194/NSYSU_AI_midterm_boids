@@ -9,3 +9,4 @@
 /boids_old.py
 /data/**/*.json
 !/data/default_setting.json
+/graph/*.png
