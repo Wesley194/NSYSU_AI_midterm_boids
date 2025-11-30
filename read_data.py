@@ -52,6 +52,7 @@ def save_Setting(data,file_name = ""):
             json.dump(data, f)
 
 def open_new_record(file_name=""):
+    if ".json" not in file_name: file_name = f"data/record/record_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
     with open(file_name, "w") as f:
         f.write("[")
     return file_name

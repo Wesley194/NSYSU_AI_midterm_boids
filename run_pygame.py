@@ -173,7 +173,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 #確保不是自己且對象是存活的
                 if other is not self and other.situation == "alive":
                     #計算兩個 boid 之間的距離
-                    distance = self.position.distance_to(other.position)-other.Attribute["Size"]/2
+                    distance = self.position.distance_to(other.position)
 
                     #檢查距離是否在排斥範圍內
                     if 0 < distance < self.Attribute["Perception_Radius"]:
@@ -580,7 +580,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                         return self.track3(all_boids)
                     case 4:
                         return self.track4(all_boids)
-        
+            else: return pygame.math.Vector2(0, 0)
         #避開其他 predator
         def apply_separation(self, predators):
             separation_force = pygame.math.Vector2(0, 0)
@@ -588,7 +588,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
             for predator in predators:
                 distance_vector = self.position - predator.position
-                distance = distance_vector.length() - predator.Attribute["Size"]/2
+                distance = distance_vector.length()
 
                 #檢查是否在觀察範圍內
                 if distance < self.Attribute["Perception_Radius"] and distance > 0:
@@ -773,7 +773,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
         desired_Bird_count = int(Setting["Overall_Bird"]["Number"])
         if desired_Bird_count > len(birds):
             for _ in range(desired_Bird_count - len(birds)):
-               birds.append(Bird.reproduction(birds))
+               birds.append(Bird.reproduction(birds) if len(birds)>10 else Bird())
         elif desired_Bird_count < len(birds):
                birds = birds[:desired_Bird_count]
 
@@ -812,13 +812,13 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
         Bird_Mouse_Activity["click"] = pygame.mouse.get_pressed()[0]-pygame.mouse.get_pressed()[2]
         
         #更新 bird 的狀態 
-        for i in range(Setting["Overall_Bird"]["Number"]):
+        for i in range(0,len(birds)):
             #死掉的 bird 在邊界重生
             if (birds[i].situation == "dead"):
                 birds[i] = Bird.reproduction(birds)
             else:
                 birds[i].update(birds,obstacles,predators,
-                    Target=np.random.choice(np.arange(0, Setting["Overall_Bird"]["Number"]), size = (int(Setting["Overall_Bird"]["Number"] * Setting["Overall_Bird"]["Movement_Accuracy"]/100), ), replace = False)
+                    Target=np.random.choice(np.arange(0, len(birds)), size = (int(len(birds) * Setting["Overall_Bird"]["Movement_Accuracy"]/100), ), replace = False)
                 ) 
                 birds[i].draw(Screen)
 
