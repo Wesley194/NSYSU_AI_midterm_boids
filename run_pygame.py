@@ -11,6 +11,7 @@ BACKGROUND_COLOR = (25, 25, 25)
 # 全域變數
 Last_Record = 0
 Predator_Eat_Cnt = 0
+EPSILON = 1e-6
 
 def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_read=None,OLD_data=None,save_OLD_data=None,file_Record=None):
 
@@ -200,19 +201,19 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             #總結
             if neighbor_count > 0:
                 #計算推離力
-                if separation_force.length_squared() > 0:
+                if separation_force.length_squared() > EPSILON:
                     separation_force.scale_to_length(self.Attribute["Separation_Weight"])
 
                 #計算對齊力
                 #對齊力 = 平均速度
-                if alignment_force.length_squared() > 0:
+                if alignment_force.length_squared() > EPSILON:
                     alignment_force.scale_to_length(self.Attribute["Alignment_Weight"])
 
                 #計算聚集力
                 #往質量中心移動
                 center_of_mass /= neighbor_count
                 cohesion_force = center_of_mass - self.position
-                if cohesion_force.length_squared() > 0:
+                if cohesion_force.length_squared() > EPSILON:
                     cohesion_force.scale_to_length(self.Attribute["Cohesion_Weight"])
 
             return separation_force + alignment_force + cohesion_force 
@@ -242,7 +243,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
             if neighbor_count > 0:
                 #計算逃跑力
-                if flee_force.length_squared() > 0:
+                if flee_force.length_squared() > EPSILON:
                     flee_force.scale_to_length(self.Attribute["Flee_Weight"])
             return flee_force
 
@@ -257,7 +258,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 distance = distance_vector.length()
                 if 0 < distance < self.Attribute["Alert_Radius"]:
                     mouse_force = distance_vector.normalize()
-                    if mouse_force.length_squared() > 0:
+                    if mouse_force.length_squared() > EPSILON:
                         mouse_force.scale_to_length(self.Attribute["Flee_Weight"])
             return mouse_force
 
@@ -280,10 +281,10 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 flee_force = self.flee_predator(predators) + self.mouse_activity() #計算逃跑作用力
 
                 rotation_force = self.direction+Setting["Overall_Bird"]["Rotation_Weight"]*0.1*DT*(force + flee_force)
-                if rotation_force.length_squared()>0: self.direction = rotation_force.normalize() #調整方向
+                if rotation_force.length_squared()>EPSILON: self.direction = rotation_force.normalize() #調整方向
                 
                 acceleration = 0
-                if self.stamina>0 and flee_force.length_squared()>0:
+                if self.stamina>0 and flee_force.length_squared()>EPSILON:
                     acceleration+=self.Attribute["MAX_Speed"]
                 elif self.stamina/MAX_STAMINA>0.8:
                     acceleration+=Setting["Overall_Bird"]["Gen_Stamina"]
@@ -369,7 +370,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                 if bird.situation != "alive":
                     continue
                 forward_bird = bird.position - self.position
-                if TRACK_RADIUS_SQ > forward_bird.length_squared() > 0:
+                if TRACK_RADIUS_SQ > forward_bird.length_squared() > EPSILON:
                     track_force += forward_bird
                     neighbor_count += 1
 
@@ -574,7 +575,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
                         track_force = self.track3(all_boids)
                     case 4:
                         track_force = self.track4(all_boids)
-            if track_force.length_squared()>0:
+            if track_force.length_squared()>EPSILON:
                 track_force.scale_to_length(self.Attribute["Track_Weight"])
             return track_force
         #避開其他 predator
@@ -594,7 +595,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
 
             if neighbor_count > 0:
                 #計算分離力
-                if separation_force.length_squared() > 0:
+                if separation_force.length_squared() > EPSILON:
                         separation_force.scale_to_length(self.Attribute["Separation_Weight"])
 
             return separation_force

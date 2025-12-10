@@ -4,8 +4,9 @@ import matplotlib.pyplot as plt
 import os
 
 # 檔案設定
-file_name = """data/record/record_2025-12-10_17-42-35.json"""
+file_name = """data/record/record_2025-12-10_18-21-54.json"""
 OUTPUT_DIR = "graph"
+Marker = ''
 
 # --- 指標列表設定 ---
 # 嵌套指標：位於 'birds' 列表內，需要計算平均值
@@ -78,7 +79,7 @@ def plot_top_level_metric_trend(df_raw, metric_name, output_dir):
     
     # 繪圖
     plt.figure(figsize=(10, 6))
-    plt.plot(df_raw['relative_time_s'], df_raw[metric_name], marker='o', linestyle='-', markersize=4)
+    plt.plot(df_raw['relative_time_s'], df_raw[metric_name], marker=Marker, linestyle='-', markersize=4)
     
     # --- 輸出欄位設定 ---
     plt.title(f"Time Series Trend of {metric_name}", fontsize=14)
@@ -136,7 +137,7 @@ def plot_birds_metric_trend(df_flat, metric_name, output_dir):
     
     # 繪圖
     plt.figure(figsize=(10, 6))
-    plt.plot(df_summary['relative_time_s'], df_summary[metric_name], marker='o', linestyle='-')
+    plt.plot(df_summary['relative_time_s'], df_summary[metric_name], marker=Marker, linestyle='-')
     
     # --- 輸出欄位設定 ---
     plt.title(f"Time Series Trend of Average {metric_name}", fontsize=14)
