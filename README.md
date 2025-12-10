@@ -6,16 +6,27 @@
 
 # 必備檔案/資料夾
 1. data
-2. initial.py
-3. read_data.py
-4. run_console.py
-5. run_pygame.py
+2. data/record
+3. initial.py
+4. read_data.py
+5. run_console.py
+6. run_pygame.py
 ## 執行時請使用 run_console.py
-執行時可在 cmd/terminal 中輸入: Python run_console.py
-抑或是指定要讀取的 json 檔，如: Python run_console.py test_input 或 Python run_console.py test_input.json
+如果跑檔案有輸入要讀取的檔案，可以在CMD執行python時中輸入，格式如下
+```console
+用預設設定跑
+python run_console.py
+
+用輸入的設定跑
+python run_console.py setting.json
+
+用輸入的設定和之前存檔跑
+python run_console.py setting.json environment.json
+```
 ## 檔案功用
 1. data : 存參數，模擬資料
-2. initial.py : 生成預設參數文件
-3. read_data.py : 讀取資料
-4. run_console.py : 打開主控台並執行模擬
-5. run_pygame.py : 執行模擬
+2. data/record : 存模擬紀錄
+3. initial.py : 生成預設參數文件
+4. read_data.py : 讀取資料
+5. run_console.py : 打開主控台並執行模擬
+6. run_pygame.py : 執行模擬
