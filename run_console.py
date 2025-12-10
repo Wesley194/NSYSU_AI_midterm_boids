@@ -36,20 +36,22 @@ def set_tkinter():
         },
         "Overall_Bird": {
             "Number": ttk.IntVar(value = 100), # bird 數量
-            "Speed_Variation_Bound": ttk.DoubleVar(value = 1),
             "Movement_Accuracy": ttk.IntVar(value = 100),
-            "Rotation_Weight": ttk.IntVar(value = 3),
+            "Rotation_Weight": ttk.DoubleVar(value = 3),
+            "Gen_Stamina": ttk.IntVar(value = 80),
+            "MAX_Life_Time": ttk.IntVar(value = 60),
         },
         "Overall_Predator": {
             "Number": ttk.IntVar(value = 3), # predator 數量
+            "Consume_Time": ttk.DoubleVar(value = 1), # 進食時間
         },
         "Predator": {
             "Size": ttk.IntVar(value = 10), # predator 大小
             "MIN_Speed": ttk.IntVar(value = 60), # predator 最小速度
             "MAX_Speed_Multiplier": ttk.DoubleVar(value = 3), # predator 最大速度
             "Perception_Radius": ttk.IntVar(value = 60), # predator 觀察範圍
-            "Separation_Weight": ttk.DoubleVar(value = 1), # predator 分離力
-            "Track_Weight": ttk.DoubleVar(value = 2), # predator 追蹤力
+            "Separation_Weight": ttk.IntVar(value = 1), # predator 分離力
+            "Track_Weight": ttk.IntVar(value = 2), # predator 追蹤力
             "Eat_Radius": ttk.IntVar(value = 8), # predator 捕食範圍
             "Track_Mode": ttk.IntVar(value = 4)
         },
@@ -62,6 +64,8 @@ def set_tkinter():
     vars_dict_read = {
         "Overall":{
             "DT": ttk.StringVar(value = ""), #畫面更新率
+            "AVG_Speed": ttk.StringVar(value = ""), # bird 平均速度
+            "Eat_Frequency": ttk.StringVar(value = ""), # 被吃的 bird / 總時間
         },
         "Bird": {
             "Size": ttk.StringVar(value = ""), # bird 大小
@@ -73,7 +77,9 @@ def set_tkinter():
             "Cohesion_Weight": ttk.StringVar(value = ""), # bird 聚集力最大值
             "Flee_Weight": ttk.StringVar(value = ""), # bird 逃跑力最大值
             "Alert_Radius": ttk.StringVar(value = ""), # bird 警戒範圍
+            "MAX_Stamina": ttk.StringVar(value = ""), # bird 體力上限
             "Fitness": ttk.StringVar(value = ""), # bird 對環境的適應度
+            "Survival_Time": ttk.StringVar(value = ""), # bird 生存時間，活太久會老死
         }
     }
 
@@ -273,7 +279,7 @@ def set_tkinter():
             while not Pygame_save_OLD_data:pass
             read_data.save_OLD(Pygame_save_OLD_data,ttkVar.get())
     def save_Setting(ttkVar=None):
-        read_data.save_OLD(Pygame_Setting,ttkVar.get())
+        read_data.save_Setting(Pygame_Setting,ttkVar.get())
 
     # ======== Console ========
     console_scrollable_frame, overall_canvas = create_scrollable_frame(Console_Window["Console"])
@@ -299,7 +305,7 @@ def set_tkinter():
 
     ttk.Label(simSet_scrollable_frame, text="Overall", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
     add_slider(simSet_scrollable_frame, "Bounce Damping", vars_dict_modify["Overall"]["Bounce_Damping"], 0, 10, step = 0.1, section = "Overall")
-    add_slider(simSet_scrollable_frame, "Damping(0.0001)", vars_dict_modify["Overall"]["Damping"], 0, 1000, step = 1, section = "Overall")
+    add_slider(simSet_scrollable_frame, "Damping", vars_dict_modify["Overall"]["Damping"], 0, 1000, step = 1, section = "Overall")
     
     ttk.Label(simSet_scrollable_frame, text="Evolution", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
     add_slider(simSet_scrollable_frame, "Mutation Rate", vars_dict_modify["Evolution"]["Mutation_Rate"], 0, 1, step = 0.1, section = "Evolution")
@@ -308,19 +314,21 @@ def set_tkinter():
     ttk.Label(simSet_scrollable_frame, text="Bird", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
     add_slider(simSet_scrollable_frame, "Number", vars_dict_modify["Overall_Bird"]["Number"], 0, 500, step = 1, section = "Bird")
     add_slider(simSet_scrollable_frame, "Movement Accuracy", vars_dict_modify["Overall_Bird"]["Movement_Accuracy"], 0, 100, step = 1, section = "Bird")
-    add_slider(simSet_scrollable_frame, "Speed Variation Bound", vars_dict_modify["Overall_Bird"]["Speed_Variation_Bound"], 0, 20, step = 0.1, section = "Bird")
-    add_slider(simSet_scrollable_frame, "Rotation Weight", vars_dict_modify["Overall_Bird"]["Rotation_Weight"], 0, 100, step = 1, section = "Bird")
+    add_slider(simSet_scrollable_frame, "Rotation Weight", vars_dict_modify["Overall_Bird"]["Rotation_Weight"], 0, 100, step = 0.1, section = "Bird")
+    add_slider(simSet_scrollable_frame, "Gen Stamina", vars_dict_modify["Overall_Bird"]["Gen_Stamina"], 20, 200, step = 1, section = "Bird")
+    add_slider(simSet_scrollable_frame, "MAX Life Time", vars_dict_modify["Overall_Bird"]["MAX_Life_Time"], 10, 300, step = 1, section = "Bird")
 
     ttk.Label(simSet_scrollable_frame, text="Predator", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
     add_slider(simSet_scrollable_frame, "Number", vars_dict_modify["Overall_Predator"]["Number"], 0, 50, step = 1, section = "Predator")
     add_slider(simSet_scrollable_frame, "Size", vars_dict_modify["Predator"]["Size"], 1, 100, step = 1, section = "Predator")
     add_slider(simSet_scrollable_frame, "Min Speed", vars_dict_modify["Predator"]["MIN_Speed"], 1, 400, step = 1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Max Speed Multiplier", vars_dict_modify["Predator"]["MAX_Speed_Multiplier"], 1, 20,step = 0.1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Perception Radius", vars_dict_modify["Predator"]["Perception_Radius"], 0, 200, step = 1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Separation Weight", vars_dict_modify["Predator"]["Separation_Weight"], 0, 20, step = 0.1, section = "Predator")
-    add_slider(simSet_scrollable_frame, "Track Weight", vars_dict_modify["Predator"]["Track_Weight"], 0, 20, step = 0.1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Max Speed Multiplier", vars_dict_modify["Predator"]["MAX_Speed_Multiplier"], 1, 40,step = 0.1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Perception Radius", vars_dict_modify["Predator"]["Perception_Radius"], 0, 1000, step = 5, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Separation Weight", vars_dict_modify["Predator"]["Separation_Weight"], 0, 500, step = 1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Track Weight", vars_dict_modify["Predator"]["Track_Weight"], 0, 500, step = 1, section = "Predator")
     add_slider(simSet_scrollable_frame, "Eat Radius", vars_dict_modify["Predator"]["Eat_Radius"], 0, 100, step = 1, section = "Predator")
     add_slider(simSet_scrollable_frame, "Track Mode", vars_dict_modify["Predator"]["Track_Mode"], 1, 4, step = 1, section = "Predator")
+    add_slider(simSet_scrollable_frame, "Consume Time", vars_dict_modify["Overall_Predator"]["Consume_Time"], 0, 10, step = 0.1, section = "Predator")
     
     ttk.Label(simSet_scrollable_frame, text="Obstacle", width=20, font=("Helvetica",14,"bold"), foreground="#EFA00B").pack(fill="x", pady=8, padx=10)
     add_slider(simSet_scrollable_frame, "Obstacle Number", vars_dict_modify["Obstacle"]["Number"], 0, 20, step = 1, section = "Obstacle")
@@ -331,13 +339,17 @@ def set_tkinter():
     add_readonly_value(overlook_scrollable_frame, "Size", "Bird", "Size")
     add_readonly_value(overlook_scrollable_frame, "MIN Speed", "Bird", "MIN_Speed")
     add_readonly_value(overlook_scrollable_frame, "MAX Speed", "Bird", "MAX_Speed")
+    add_readonly_value(overlook_scrollable_frame, "AVG Speed", "Overall", "AVG_Speed")
     add_readonly_value(overlook_scrollable_frame, "Perception Radius", "Bird", "Perception_Radius")
     add_readonly_value(overlook_scrollable_frame, "Separation Weight", "Bird", "Separation_Weight")
     add_readonly_value(overlook_scrollable_frame, "Alignment Weight", "Bird", "Alignment_Weight")
     add_readonly_value(overlook_scrollable_frame, "Cohesion Weight", "Bird", "Cohesion_Weight")
     add_readonly_value(overlook_scrollable_frame, "Flee Weight", "Bird", "Flee_Weight")
     add_readonly_value(overlook_scrollable_frame, "Alert Radius", "Bird", "Alert_Radius")
+    add_readonly_value(overlook_scrollable_frame, "MAX Stamina", "Bird", "MAX_Stamina")
     add_readonly_value(overlook_scrollable_frame, "Fitness", "Bird", "Fitness")
+    add_readonly_value(overlook_scrollable_frame, "Survival Time", "Bird", "Survival_Time")
+    add_readonly_value(overlook_scrollable_frame, "Eat Frequency", "Overall", "Eat_Frequency")
     
 
     def on_closing():

@@ -10,3 +10,4 @@
 /data/**/*.json
 !/data/default_setting.json
 /graph/*.png
+/a_ignore
