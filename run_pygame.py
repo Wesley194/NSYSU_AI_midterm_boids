@@ -807,7 +807,7 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
         if stop_event:
             Bird.record_Attribute(birds)
             
-            counterN+=1
+            counterN+=DT
             if counterN>5:
                 global Predator_Eat_Cnt
                 shared_state_modify["Overall"]["Eat_Frequency"] = Predator_Eat_Cnt/counterN
