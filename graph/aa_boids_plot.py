@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import os
 
 # 檔案設定
-file_name = """data/record/record_2025-12-10_18-21-54.json"""
+file_name = """data/record/record_2025-12-10_21-35-56.json"""
 OUTPUT_DIR = "graph"
 Marker = ''
 

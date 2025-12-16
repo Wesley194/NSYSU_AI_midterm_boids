@@ -154,10 +154,9 @@ def run_pygame(Setting, stop_event=None, shared_state_modify=None, shared_state_
             
             for key,val in self.Attribute.items():
                 if key in Setting["Lower_Bound_Bird"].keys():
-                    self.Attribute[key] = max(val,Setting["Lower_Bound_Bird"][key])
-                if key in Setting["Upper_Bound_Bird"]:
-                    self.Attribute[key] = min(val,Setting["Upper_Bound_Bird"][key])
-
+                    self.Attribute[key] = max(self.Attribute[key],Setting["Lower_Bound_Bird"][key])
+                if key in Setting["Upper_Bound_Bird"].keys():
+                    self.Attribute[key] = min(self.Attribute[key],Setting["Upper_Bound_Bird"][key])
             if pos is None:
                 edges = [
                     {'x': 0, 'y': random.randint(0, SCREEN_HEIGHT)},           
