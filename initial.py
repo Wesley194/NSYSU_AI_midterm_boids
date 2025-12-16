@@ -62,7 +62,6 @@ def setGlobal():
             "Separation_Weight": 10, # predator 分離力
             "Track_Weight": 20, # predator 追蹤力
             "Eat_Radius": 8, # predator 捕食範圍
-            "MAX_Stamina": 150, # predator 體力上限
             "Track_Mode": 4, # 追擊方式
         },
         "Particle": {
